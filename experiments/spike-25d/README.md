@@ -216,3 +216,24 @@ planos: el rōnin tiene píxeles más finos que el escenario, que allí se ve en
 
 **Siguientes pasos posibles**
 - No hay una vista de perfil: el giro de frente a espaldas es un corte, no una animación de vuelta.
+
+## Escena «La ventana» (`aurora.html`)
+
+Pixel Quest Adventure: el arquero rubio sentado en la ventana mira una montaña nevada bajo auroras boreales; pasa una
+estrella fugaz y cierra la frase *«Vivir es un instante, la obra maestra permanece, admírala mientras puedas»*.
+22 s, 1080×1920, solo efectos de sonido (viento, vela, estrella, campanillas del texto); sin música.
+
+Lo que aporta del spike para dar profundidad:
+- **Capas a distintas profundidades** (pared z=9, nieve que cae z=5.5, pinos y cabaña z −6…−27, montaña z=−30, cielo z=−44)
+  con una **órbita lenta de cámara** (yaw −5°→+5°): el marco de la ventana se desliza contra el paisaje (parallax real).
+- **Sombras planas de la luna** de pinos y cabaña sobre la nieve; suelo de baja frecuencia (sin hervor).
+- **Zoom ×2 entero** (4.6–7.6 s) con el **sprite HD** del arquero (doble densidad, `ppu: 32`).
+- Cielo dinámico por cuadro: estrellas que titilan, luna, dos cortinas de aurora con tramado Bayer y la estrella fugaz.
+- Atenuación final tramada en el shader y texto en fuente pixel 5×7 (con «í») escrito a máquina en tres tiempos.
+
+Exportar: `node capture.cjs --page aurora.html --out out/aurora.mp4`
+
+## Corrección: inclinación de los billboards
+
+La rotación correcta para que un billboard quede paralelo a la pantalla es `rotation.x = −pitch` (orden `'YXZ'`).
+La fórmula anterior `−(90° − pitch)` solo coincidía cerca de 45°; se corrigió en `index.html` y `wakayama.html`.

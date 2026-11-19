@@ -233,7 +233,7 @@ function renderView(yawDeg, pitchDeg, A, t, rt) {
   const list = SET[P.sprites];
   for (const b of list) {
     const v = b.visible; v.material = P.lit ? b.litMat : b.flatMat; v.position.set(b.x, 0, b.z); v.rotation.set(0, yaw, 0); v.scale.set(1, 1, 1);
-    if (P.correct === 'tilt') v.rotation.set(-(Math.PI / 2 - pitch), yaw, 0, 'YXZ');                  // lean back until the quad is parallel to the screen
+    if (P.correct === 'tilt') v.rotation.set(-pitch, yaw, 0, 'YXZ');                                    // lean back by the camera's pitch: the quad is then parallel to the screen
     if (P.correct === 'stretch') v.scale.y = 1 / Math.sin(pitch);
     v.castShadow = P.shadowMode === 'billboard';
     if (b.frames.length > 1) { const idle = b.frames.length - 1; b.setFrame(1 + cyc(t * 1000 / b.frames[1].ms, idle)); }

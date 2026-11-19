@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Aurora 2.5D</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  ESCENA "LA VENTANA" del spike 2.5D (Pixel Quest Adventure). Aislada: no toca index.html, wakayama.html, Aseprite ni Pixelbolt.
+  El arquero rubio sentado en una ventana mira una montaña nevada bajo auroras boreales; pasa una estrella fugaz;
+  al final, la frase. Lo aprendido en el spike: todo es billboard paralelo a la pantalla (1 texel = 1 píxel), capas
+  a distintas profundidades con una órbita lenta de cámara para el parallax, sombras planas de la luna sobre la
+  nieve, suelo de baja frecuencia, paleta cuantizada en shader, tramado ordenado, zoom x2 entero con sprite HD,
+  render 180x320 escalado x6 nearest y window.__draw(t) determinista. three.js 0.160.0 por import map.
+-->
+<style>
+  html, body { margin: 0; background: #0a0f2a; color: #d7dbe3; font: 13px/1.4 system-ui, sans-serif; }
+  #wrap { display: flex; gap: 16px; padding: 16px; align-items: flex-start; flex-wrap: wrap; }
+  #out { height: min(92vh, 960px); aspect-ratio: 9 / 16; image-rendering: pixelated; background: #000; display: block; }
+  #panel { background: #1f232c; border-radius: 8px; padding: 12px 14px; width: 300px; }
+  #panel h1 { font-size: 14px; margin: 0 0 8px; }
+  #panel label { display: grid; grid-template-columns: 70px 1fr 52px; gap: 6px; align-items: center; margin: 6px 0; }
+  #panel input[type=range] { width: 100%; }
+  #panel .val { color: #8b93a3; text-align: right; font-variant-numeric: tabular-nums; }
+  #panel p { color: #8b93a3; margin: 8px 0 0; }
+  body.render #panel { display: none; }
+  body.render #wrap { padding: 0; }
+  body.render #out { height: auto; width: 1080px; }
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" } }</script>
+</head><body>
+<div id="wrap">
+  <canvas id="out" width="1080" height="1920"></canvas>
+  <div id="panel">
+    <h1>Pixel Quest · la ventana</h1>
+    <label>Tiempo <input type="range" id="time" min="0" max="220" value="0"><span class="val" id="timeV"></span></label>
+    <p><button id="play">Pausa</button></p>
+    <p>Espacio: pausa · ←/→: ±0.1 s · <code>?render</code> oculta este panel.</p>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+
+// =================================================================== PLAN AS DATA
+const OUT_W = 1080, OUT_H = 1920, IW = 180, IH = 320, FPS = 30, PPU = 16;
+const T = {
+  auroraIn: [0, 5], look: 6.2, star: [7.9, 9.1], point: [8.3, 10.2], flare: [8.6, 11.5],
+  text: [13.0, 15.3, 17.6], typeDur: 1.3, dim: [12.4, 13.4], end: 22,
+};
+const DURATION = T.end, PITCH = 16;                     // a low camera: we look out of the window, at the sky
+const ORBIT = { from: -5, to: 5, over: [0, 15] };       // degrees of slow yaw: the parallax between the layers
+const SHOTS = [{ from: 0, zoom: 1 }, { from: 4.6, zoom: 2, on: 'archer' }, { from: 7.6, zoom: 1 }];
+const LAYERS = { wall: 9, snowfall: 5.5, sky: -44, mountain: -30 };   // depth (world z) of each plane; the camera looks towards -z
+const MOON = { az: -150, el: 34 };                      // behind and to the left: pine shadows fall right, towards us
+const PINES = [[-5.2, -6, 1], [-3.6, -9, 2], [4.6, -7.5, 1], [6.2, -12, 0], [-6.5, -14, 0], [2.4, -17, 2], [-2.2, -19, 1], [5.4, -21, 2], [-4.8, -23, 2], [0.4, -25, 1], [7.4, -26, 0], [-7.4, -27, 1]];
+const CABIN = [3.2, -15.5];
+const LINES = [                                         // the closing words, three beats
+  { rows: ['Vivir es', 'un instante,'], top: 'e', bot: 'C' },
+  { rows: ['la obra', 'maestra', 'permanece,'], top: 'e', bot: 'C' },
+  { rows: ['admírala', 'mientras', 'puedas.'], top: 'y', bot: 'L' },
+];
+
+// =================================================================== palette (every pixel of the film is one of these)
+const COL = {
+  o: '#1a1228', k: '#2b1e33', b: '#4f3a40', w: '#7a5845', W: '#a8805a', Y: '#d8b46a', O: '#ff9a3a',
+  g: '#18503c', G: '#24773c', l: '#3f9e3a', L: '#78c63e', y: '#c4ec5c',
+  s: '#5c62ae', S: '#9a9ccc', T: '#cfd0ea', e: '#ffffff', r: '#e0483a', R: '#8f2438',
+  a: '#2a62e0', A: '#1c45b0', B: '#86b8f8', C: '#c2e0fc', N: '#14307a', q: '#0a0f2a', Q: '#141c44',
+  c: '#ffd9b3', d: '#e0a078', f: '#f4c542', F: '#f7e08a', t: '#1a3a52', u: '#2c6a62', v: '#4a9a8a', x: '#9fd4c0', p: '#c86ad8', M: '#6a3a8a',
+};
+const KEYS = Object.keys(COL), I = Object.fromEntries(KEYS.map((k, i) => [k, i]));
+const LUT = new Uint32Array(KEYS.map(k => { const n = parseInt(COL[k].slice(1), 16); return (0xff << 24) | ((n & 255) << 16) | (((n >> 8) & 255) << 8) | (n >> 16); }));
+const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16), bay = (x, y) => B4[(y & 3) * 4 + (x & 3)];
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x)), lerp = (a, b, p) => a + (b - a) * p, seg = (t, a, b) => clamp((t - a) / (b - a));
+const ease = p => -(Math.cos(Math.PI * p) - 1) / 2, cyc = (x, n) => ((Math.floor(x) % n) + n) % n, TAU = Math.PI * 2, rad = d => d * Math.PI / 180;
+function hash(x, y, s) { let h = (x * 374761393 + y * 668265263 + s * 982451653) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function vnoise(x, y, s = 0) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf); const a = hash(xi, yi, s), b = hash(xi + 1, yi, s), c = hash(xi, yi + 1, s), d = hash(xi + 1, yi + 1, s); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+
+// =================================================================== indexed pixel buffers -> canvas textures
+class Pix {
+  constructor(w, h) { Object.assign(this, { w, h, d: new Uint8Array(w * h).fill(255) }); this.c = document.createElement('canvas'); this.c.width = w; this.c.height = h; this.x = this.c.getContext('2d', { willReadFrequently: true }); this.img = this.x.createImageData(w, h); this.u = new Uint32Array(this.img.data.buffer); }
+  clear() { this.d.fill(255); return this; }
+  p(x, y, c) { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; this.d[y * this.w + x] = typeof c === 'string' ? I[c] : c; }
+  get(x, y) { x = Math.round(x); y = Math.round(y); return (x < 0 || y < 0 || x >= this.w || y >= this.h) ? 255 : this.d[y * this.w + x]; }
+  r(x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.p(x + i, y + j, c); }
+  line(x0, y0, x1, y1, c, th = 1) { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0)) + 1; for (let i = 0; i <= n; i++) { const x = lerp(x0, x1, i / n), y = lerp(y0, y1, i / n); this.r(x - (th >> 1), y - (th >> 1), th, th, c); } }
+  disc(cx, cy, r, c) { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r + r * .6) this.p(cx + x, cy + y, c); }
+  outline(c = 'o') { const o = new Uint8Array(this.d), w = this.w, h = this.h; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (this.d[y * w + x] !== 255) continue; if ((x > 0 && this.d[y * w + x - 1] !== 255) || (x < w - 1 && this.d[y * w + x + 1] !== 255) || (y > 0 && this.d[(y - 1) * w + x] !== 255) || (y < h - 1 && this.d[(y + 1) * w + x] !== 255)) o[y * w + x] = I[c]; } this.d = o; return this; }
+  flush() { for (let i = 0; i < this.d.length; i++) this.u[i] = this.d[i] === 255 ? 0 : LUT[this.d[i]]; this.x.putImageData(this.img, 0, 0); if (this.tex) this.tex.needsUpdate = true; return this; }
+  texture() { if (!this.tex) { this.flush(); const t = new THREE.CanvasTexture(this.c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; this.tex = t; } return this.tex; }
+}
+
+// =================================================================== the archer, from behind, sitting on the sill (LD 32x40; HD 64x80 for the x2 shot)
+const AW = 32, AH = 40, AX = 16, AF = 39;
+function archer(pose) {
+  const P = new Pix(AW, AH), X = AX, F = AF, look = pose === 'look' || pose === 'point', hy = look ? -1 : 0;
+  for (let j = 0; j < 21; j++) { const hw = Math.round(6 + j * .17), y = F - 20 + j; P.r(X - hw, y, hw * 2 + 1, 1, 'G'); P.r(X + hw - 1, y, 2, 1, 'g'); P.p(X - hw, y, 'l'); }   // the cloak, lit on the left by the candle
+  P.line(X - 3, F - 16, X - 4, F - 1, 'g'); P.line(X + 2, F - 15, X + 3, F - 1, 'g'); P.r(X - 9, F, 19, 1, 'g');
+  P.r(X - 7, F - 21, 15, 3, 'G'); P.r(X - 7, F - 21, 15, 1, 'l'); P.r(X + 5, F - 21, 3, 3, 'g');                               // shoulders, the hood folded down
+  P.line(X + 5, F - 19, X - 1, F - 6, 'w', 3); P.line(X + 6, F - 19, X, F - 6, 'W');                                              // the quiver across the back
+  for (const [dx, h] of [[3, 7], [5, 9], [7, 6]]) { P.line(X + dx, F - 19, X + dx + 1, F - 19 - h, 'W'); P.r(X + dx, F - 20 - h, 2, 2, dx === 5 ? 'e' : 'r'); }   // arrows and fletching
+  // the head, turned a little to the right: blonde hair, a pointed elf ear, the edge of a cheek
+  P.r(X - 4, F - 31 + hy, 9, 9, 'F'); P.r(X + 3, F - 31 + hy, 2, 9, 'Y'); P.r(X - 4, F - 31 + hy, 3, 1, 'e'); P.r(X - 3, F - 32 + hy, 7, 1, 'F');
+  P.r(X + 4, F - 26 + hy, 2, 4, 'c'); P.p(X + 5, F - 23 + hy, 'd');
+  P.r(X + 5, F - 28 + hy, 2, 2, 'c'); P.p(X + 7, F - 29 + hy, 'c'); P.p(X + 8, F - 30 + hy, 'c'); P.p(X + 6, F - 27 + hy, 'd');      // the ear
+  P.r(X - 2, F - 23 + hy, 3, 1, 'R');                                                                                            // the hair tie
+  for (let k = 0; k < 14; k++) { const sw = Math.round(Math.sin(k * .4) * .6); P.r(X - 2 + sw, F - 22 + k + hy, 3, 1, k % 4 === 3 ? 'Y' : 'F'); }   // the ponytail
+  if (pose === 'point') { P.line(X + 6, F - 20, X + 12, F - 30, 'G', 3); P.line(X + 7, F - 20, X + 13, F - 30, 'l'); P.r(X + 12, F - 33, 3, 3, 'c'); P.p(X + 14, F - 35, 'c'); P.p(X + 15, F - 36, 'c'); }
+  return P.outline().flush();
+}
+function archerHD(pose) {                                // double density: the LD design upscaled, then fine detail, with a 1-px outline
+  const lo = archer(pose), P = new Pix(AW * 2, AH * 2), W2 = AW * 2, X = AX * 2, F = AF * 2, hy = (pose === 'look' || pose === 'point') ? -2 : 0;
+  for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { const c = lo.d[y * AW + x]; if (c === 255 || c === I.o) continue; for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) P.d[(2 * y + dy) * W2 + 2 * x + dx] = c; }
+  const src = new Uint8Array(P.d);
+  for (let y = 0; y < AH * 2; y++) for (let x = 0; x < W2; x++) {
+    const c = src[y * W2 + x]; if (c === 255) continue; const rx = x - X, ly = y - F;
+    if ((c === I.F || c === I.Y) && ly < -40) { if ((x + (y >> 1)) % 4 === 0) P.p(x, y, c === I.F ? 'Y' : 'W'); else if (c === I.F && (x + y) % 11 === 0) P.p(x, y, 'e'); }   // strands of blonde hair
+    else if (c === I.G && (rx === -9 || rx === -2 || rx === 6 || rx === 13) && ly > -38) P.p(x, y, 'g');                                // cloak folds
+    else if (c === I.w && (x + y) % 5 === 0) P.p(x, y, 'b');                                                                         // quiver leather
+    else if (c === I.r && (x & 1)) P.p(x, y, 'R');
+  }
+  P.p(X + 12, F - 56 + hy, 'd'); P.p(X + 13, F - 57 + hy, 'd'); P.p(X + 11, F - 54 + hy, 'd');                                // inside of the ear
+  P.r(X + 9, F - 49 + hy, 1, 4, 'd'); P.p(X + 10, F - 45 + hy, 'c');                                                            // cheek edge
+  for (let k = 0; k < 4; k++) P.p(X - 3 + k * 2, F - 46 + hy, 'f');                                                              // a gold bead on the tie
+  return P.outline().flush();
+}
+
+// =================================================================== scenery
+function wall() {                                        // the room: dark planks, warm candle light, an arched open window, curtains, a bow
+  const W = 240, H = 400, P = new Pix(W, H), cx = 120, wy0 = 76, wy1 = 262, hw = 70, ar = 70;
+  const warm = (x, y) => Math.max(0, 1 - Math.hypot(x - 178, y - 262) / 150);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const v = .15 + warm(x, y) * .9 + (hash(x >> 1, y >> 3, 3) - .5) * .1; P.p(x, y, x % 16 === 0 ? 'o' : v + bay(x, y) * .25 > .9 ? 'w' : v + bay(x, y) * .25 > .55 ? 'b' : 'k'); }
+  const inside = (x, y) => x > cx - hw && x < cx + hw && y < wy1 && (y > wy0 + ar || Math.hypot(x - cx, y - (wy0 + ar)) < ar);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (inside(x, y)) { P.d[y * W + x] = 255; continue; }
+    const near = [1, 2, 3, 4, 5, 6, 7, 8].some(k => inside(x + k, y) || inside(x - k, y) || inside(x, y + k) || inside(x, y - k));
+    if (near) { const left = x < cx; P.p(x, y, [2, 3].some(k => inside(x + k, y) || inside(x - k, y) || inside(x, y - k)) ? (left ? 'Y' : 'W') : left ? 'W' : 'w'); }
+  }
+  P.r(cx - hw - 14, wy1, hw * 2 + 28, 3, 'Y'); P.r(cx - hw - 14, wy1 + 3, hw * 2 + 28, 7, 'W'); P.r(cx - hw - 14, wy1 + 10, hw * 2 + 28, 2, 'w'); P.r(cx - hw - 10, wy1 - 1, hw * 2 + 20, 1, 'e');   // the sill, snow on its outer lip
+  for (const side of [-1, 1]) for (let y = wy0 - 10; y < wy1 - 6; y++) {                      // curtains, tied back
+    const tie = wy0 + 120, pinch = y < tie ? 1 - (y - wy0) / 200 : .55 + (y - tie) / 260, w = Math.round(22 * pinch);
+    for (let k = 0; k < w; k++) { const x = side < 0 ? cx - hw - 12 + k : cx + hw + 12 - k; P.p(x, y, (k + Math.floor(y / 9)) % 6 === 0 ? 'R' : warm(x, y) > .45 ? 'r' : 'R'); }
+    if (Math.abs(y - tie) < 2) P.r(side < 0 ? cx - hw - 12 : cx + hw - 10, y, 22, 1, 'f');
+  }
+  for (let k = 0; k < 70; k++) { const a = -1.1 + k / 70 * 2.2; P.p(cx + hw - 6 + Math.round(Math.cos(a) * 10) - 10, wy1 - 2 - 34 + Math.round(Math.sin(a) * 34), k > 3 && k < 66 ? 'W' : 'w'); P.p(cx + hw - 5 + Math.round(Math.cos(a) * 10) - 10, wy1 - 2 - 34 + Math.round(Math.sin(a) * 34), 'w'); }
+  P.line(cx + hw - 6, wy1 - 70, cx + hw - 6, wy1 - 2, 'T');                                                                  // the bow, leaning on the frame
+  P.r(30, 300, 60, 4, 'W'); P.r(30, 300, 60, 1, 'Y'); for (const [x, h, c] of [[36, 12, 'R'], [46, 16, 'u'], [58, 10, 'M'], [70, 14, 'R'], [80, 11, 'u']]) { P.r(x, 300 - h, 7, h, c); P.r(x + 1, 300 - h + 2, 5, 1, 'F'); }   // a shelf of books
+  return P.outline('o').flush();
+}
+function candle(t) { const P = new Pix(10, 22); P.r(3, 12, 4, 9, 'T'); P.r(3, 12, 1, 9, 'e'); P.r(1, 20, 8, 2, 'W'); P.p(5, 11, 'k'); const f = cyc(t * 9, 3), h = 6 + (f === 1 ? 1 : 0); for (let j = 0; j < h; j++) { const hw = j < 2 ? 0 : j < h - 1 ? 1 : 0; for (let i = -hw; i <= hw; i++) P.p(5 + i + (f === 2 && j > 3 ? 1 : 0), 10 - j, j < 2 ? 'e' : j < 4 ? 'F' : 'O'); } return P.outline().flush(); }
+const candlePix = new Pix(10, 22);
+function drawCandle(t) { const c = candle(t); candlePix.d.set(c.d); candlePix.flush(); }
+function pine(size) { const H = [34, 46, 60][size], Wd = [18, 24, 30][size], P = new Pix(Wd + 4, H + 2), X = (Wd + 4) >> 1; P.r(X - 1, H - 6, 3, 7, 'b'); const tiers = [4, 5, 6][size]; for (let k = 0; k < tiers; k++) { const yb = H - 4 - k * ((H - 8) / tiers), w = (Wd / 2) * (1 - k / (tiers + .5)), th = (H - 8) / tiers + 4; for (let j = 0; j < th; j++) { const hw = (j / th) * w; for (let q = -hw; q <= hw; q++) P.p(X + q, yb - th + j, j < 2 ? 'e' : j < 3 ? 'T' : q > hw * .2 ? 't' : 'g'); } } return P.outline().flush(); }
+function cabin() { const P = new Pix(34, 30); P.r(4, 14, 26, 15, 'w'); for (let y = 15; y < 29; y += 3) P.r(4, y, 26, 1, 'b'); P.r(12, 18, 6, 6, 'O'); P.r(13, 19, 4, 4, 'F'); P.r(14, 18, 1, 6, 'b'); P.r(22, 20, 5, 9, 'b'); for (let j = 0; j < 11; j++) P.r(16 - j * 1.6 - 1, 3 + j, Math.round(j * 3.2) + 3, 1, j < 3 ? 'e' : j % 3 ? 'T' : 'S'); P.r(24, 2, 3, 6, 's'); P.r(23, 1, 5, 2, 'e'); return P.outline().flush(); }
+function mountain() {                                    // snowy peaks lit by the moon from the left, blue-violet shade on the right, a forest at the foot
+  const W = 340, H = 210, P = new Pix(W, H);
+  const peaks = [[70, 92, 60], [168, 22, 96], [262, 70, 70], [320, 120, 44]];
+  for (let x = 0; x < W; x++) {
+    let top = H; for (const [px, py, s] of peaks) top = Math.min(top, py + Math.abs(x - px) * (H / s) * .55 + (vnoise(x * .08, 0, 31) - .5) * 10);
+    for (let y = Math.max(0, Math.round(top)); y < H; y++) {
+      const pk = peaks.reduce((b, k) => Math.abs(x - k[0]) < Math.abs(x - b[0]) ? k : b), lit = x < pk[0] - (y - pk[1]) * .1, snowLine = y < 150 + vnoise(x * .05, 1, 32) * 26, ridge = false;
+      P.p(x, y, !snowLine ? (vnoise(x * .2, y * .2, 33) > .55 ? 'g' : 't') : ridge ? (lit ? 'S' : 's') : lit ? (y - top < 3 ? 'e' : (hash(x >> 2, y >> 2, 34) > .9 ? 'T' : 'e')) : (vnoise(x * .1, y * .1, 35) > .6 ? 'S' : 's'));
+    }
+  }
+  for (let i = 0; i < 46; i++) { const x = hash(i, 1, 36) * W, y = 168 + hash(i, 2, 36) * 36, h = 8 + hash(i, 3, 36) * 12; for (let k = 0; k < h; k++) { const hw = (k / h) * 4 + .5; for (let q = -hw; q <= hw; q++) P.p(x + q, y - h + k, k < 2 ? 'T' : 't'); } }
+  for (let x = 0; x < W; x++) for (let y = 0; y < H; y++) { const c = P.get(x, y), up = P.get(x, y - 1); if (c === I.e && up === 255 && hash(x, y, 37) > .5) P.p(x, y, 'x'); }   // aurora light on the snow ridges
+  return P.outline('Q').flush();
+}
+function snowGround() {                                  // 20 x 34 units at 16 texels/unit: flat snow, big soft patches, a frozen lake; no fine detail to boil
+  const W = 320, H = 544, P = new Pix(W, H), wx = i => -10 + i / 16, wz = j => 7 - j / 16;
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const x = wx(i), z = wz(j), v = vnoise(x * .25, z * .25, 41) * .7 + vnoise(x * .7, z * .7, 42) * .3, d = bay(i, j) * .04;
+    let c = v + d > .64 ? 'e' : v + d > .36 ? 'T' : 'S';
+    const lk = ((x - 0.8) / 4.2) ** 2 + ((z + 20.5) / 2.2) ** 2;
+    if (lk < 1) c = lk > .86 ? 'S' : (Math.sin(x * 3 + z) > .8 ? 'x' : (z + 20.5 > .4 ? 'u' : 'v')); else if (lk < 1.1) c = 'e';
+    P.p(i, j, c);
+  }
+  return P.flush();
+}
+
+// =================================================================== the sky: gradient, stars, moon, the aurora and the shooting star, drawn every frame
+const SKW = 360, SKH = 460, skyPix = new Pix(SKW, SKH);
+const STARS = Array.from({ length: 160 }, (_, i) => [hash(i, 1, 51) * SKW, hash(i, 2, 51) * 330, hash(i, 3, 51)]);
+function sky(t, S) {
+  const P = skyPix, A = S.aurora;
+  for (let y = 0; y < SKH; y++) { const v = y / SKH * 3.4; for (let x = 0; x < SKW; x++) P.d[y * SKW + x] = I[['q', 'Q', 'N', 'N'][Math.min(3, Math.floor(v + bay(x, y) * .7 - .2))] ?? 'q']; }
+  for (const [x, y, ph] of STARS) { const k = cyc(t * (1 + ph * 2) + ph * 9, 6); if (k === 0) continue; P.p(x, y, k > 3 ? 'e' : k > 1 ? 'C' : 'B'); if (ph > .9 && k > 3) { P.p(x + 1, y, 'B'); P.p(x - 1, y, 'B'); P.p(x, y + 1, 'B'); P.p(x, y - 1, 'B'); } }
+  // the moon, a crescent, with a dithered halo
+  for (let y = -22; y <= 22; y++) for (let x = -22; x <= 22; x++) { const d = Math.hypot(x, y); if (d < 22 && d > 11 && bay(x + 266, y + 214) < .22 * (1 - d / 22)) P.p(266 + x, 214 + y, 'N'); }
+  for (let y = -10; y <= 10; y++) for (let x = -10; x <= 10; x++) if (x * x + y * y <= 100 && (x - 5) ** 2 + (y - 3) ** 2 > 64) P.p(266 + x, 214 + y, x < -6 ? 'F' : 'e');
+  // two aurora curtains: vertical rays above a wavy hem, colour by height, alpha by ordered dither
+  for (const [base, amp, len, sp, cols, a0] of [[318, 22, 110, .35, ['y', 'L', 'x', 'p'], 1.35], [276, 18, 80, -.25, ['x', 'v', 'p', 'M'], 1]]) {
+    for (let x = 0; x < SKW; x++) {
+      const hem = base + amp * Math.sin(x * .021 + t * sp) + amp * .45 * Math.sin(x * .053 - t * sp * 1.7), h = len * (.7 + .3 * Math.sin(x * .031 + t * .4));
+      const ray = .55 + .45 * Math.sin(x * .55 + t * 1.8 + Math.sin(x * .09 + t * .3) * 4), strength = A * a0 * (.55 + .45 * Math.sin(x * .017 + t * .7)) * ray;
+      for (let y = Math.max(0, Math.round(hem - h)); y < Math.min(SKH, hem + 3); y++) {
+        const f = (hem - y) / h, al = strength * (f < 0 ? 1 + f * 3 : Math.pow(1 - f, .9));
+        if (al > bay(x, y) + .05) P.p(x, y, cols[f < .12 ? 0 : f < .4 ? 1 : f < .75 ? 2 : 3]);
+      }
+    }
+  }
+  // the shooting star
+  const ss = seg(t, ...T.star);
+  if (ss > 0 && ss < 1) { const hx = lerp(250, 40, ss), hyy = lerp(196, 262, ss); for (let k = 0; k < 60; k++) { const x = hx + k * 2.4, y = hyy - k * .75; if (k < 8) P.p(x, y + 1, 'C'); if (bay(Math.round(x), Math.round(y)) < 1.1 - k / 60) P.p(x, y, k < 4 ? 'e' : k < 14 ? 'C' : 'B'); } P.r(hx - 1, hyy - 1, 3, 3, 'e'); P.p(hx - 2, hyy, 'C'); P.p(hx + 2, hyy, 'C'); P.p(hx, hyy - 2, 'C'); P.p(hx, hyy + 2, 'C'); }
+  P.flush();
+}
+const SFW = 220, SFH = 320, snowPix = new Pix(SFW, SFH);
+function snowfall(t) { const P = snowPix.clear(); for (let i = 0; i < 70; i++) { const sp = 10 + hash(i, 1, 61) * 14, x = ((hash(i, 2, 61) * SFW + Math.sin(t * .8 + i) * 6 + t * 3) % SFW + SFW) % SFW, y = ((hash(i, 3, 61) * SFH + t * sp) % SFH + SFH) % SFH; P.p(x, y, hash(i, 4, 61) > .5 ? 'e' : 'C'); if (hash(i, 5, 61) > .85) P.p(x + 1, y, 'C'); } P.flush(); }
+
+// =================================================================== three.js: ortho camera, billboards that face it, planar moon shadows, palette pass
+const gl = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true, alpha: false });
+gl.setPixelRatio(1); gl.setSize(IW, IH, false);
+const out = document.getElementById('out'), octx = out.getContext('2d');
+const scene = new THREE.Scene(); scene.background = new THREE.Color(COL.q);
+const camera = new THREE.OrthographicCamera(-IW / PPU / 2, IW / PPU / 2, IH / PPU / 2, -IH / PPU / 2, .1, 400);
+const rt = new THREE.WebGLRenderTarget(IW, IH, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, generateMipmaps: false });
+const PALN = KEYS.length, qv = parseInt(COL.q.slice(1), 16);
+const post = new THREE.ShaderMaterial({
+  uniforms: { tA: { value: rt.texture }, dim: { value: 0 }, night: { value: new THREE.Vector3((qv >> 16) / 255, ((qv >> 8) & 255) / 255, (qv & 255) / 255) }, pal: { value: KEYS.map(k => { const n = parseInt(COL[k].slice(1), 16); return new THREE.Vector3((n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); }) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+  fragmentShader: `uniform sampler2D tA; uniform float dim; uniform vec3 night; uniform vec3 pal[${PALN}]; varying vec2 vUv;
+    float bayer4(vec2 p){ int x = int(mod(p.x, 4.)), y = int(mod(p.y, 4.)); int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5); return (float(m[y * 4 + x]) + .5) / 16.; }
+    vec3 toSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(.0031308, c)); }
+    void main(){ vec3 c = toSRGB(texture2D(tA, vUv).rgb);
+      c = mix(c, night, dim * (.5 + .3 * bayer4(floor(gl_FragCoord.xy))));                // the closing dim, dithered, then snapped to the palette
+      float best = 1e9; vec3 bc = c;
+      for (int i = 0; i < ${PALN}; i++) { vec3 d = c - pal[i]; float e = dot(d * d, vec3(.3, .59, .11)); if (e < best) { best = e; bc = pal[i]; } }
+      gl_FragColor = vec4(bc, 1.); }`,
+  depthTest: false, depthWrite: false,
+});
+const postScene = new THREE.Scene(), postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
+
+const ma = rad(MOON.az), me = rad(MOON.el), moonDir = new THREE.Vector3(Math.sin(ma) * Math.cos(me), Math.sin(me), Math.cos(ma) * Math.cos(me));
+const SHEAR = new THREE.Matrix4().set(1, -moonDir.x / moonDir.y, 0, 0, 0, 0, 0, .012, 0, -moonDir.z / moonDir.y, 1, 0, 0, 0, 0, 1);
+const SPRITES = [];
+function billboard(pix, w, h, ax, ay, opts = {}) {      // a quad that always faces the camera: rotation (-pitch, yaw); ax, ay = the foot pixel
+  const ppu = opts.ppu || PPU, geo = new THREE.PlaneGeometry(w / ppu, h / ppu); geo.translate((w / 2 - (ax + .5)) / ppu, (h / 2 - (h - 1 - ay)) / ppu, 0);
+  const mat = new THREE.MeshBasicMaterial({ map: pix.texture(), alphaTest: .5, side: THREE.DoubleSide, depthWrite: false });
+  const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; scene.add(mesh);
+  let shadow = null;
+  if (opts.shadow) { shadow = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: pix.texture(), alphaTest: .5, color: COL.s, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide })); shadow.matrixAutoUpdate = false; shadow.renderOrder = 2; shadow.frustumCulled = false; scene.add(shadow); }
+  const s = { mesh, mat, shadow, x: 0, y: 0, z: 0, place(x, y, z) { this.x = x; this.y = y; this.z = z; mesh.position.set(x, y, z); if (shadow) { const m = new THREE.Matrix4().makeRotationY(ma); m.setPosition(x, 0, z); shadow.matrix.multiplyMatrices(SHEAR, m); } return this; },
+    show(v) { mesh.visible = v; if (shadow) shadow.visible = v; return this; }, setMap(p) { mat.map = p.texture(); if (shadow) shadow.material.map = p.texture(); } };
+  SPRITES.push(s); return s;
+}
+
+// the set, back to front
+skyPix.texture(); const skyS = billboard(skyPix, SKW, SKH, SKW >> 1, SKH - 1).place(0, -14, LAYERS.sky);
+const mt = mountain(), mountS = billboard(mt, mt.w, mt.h, mt.w >> 1, mt.h - 1).place(.4, -9, LAYERS.mountain);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 34), new THREE.MeshBasicMaterial({ map: snowGround().texture() }));
+ground.rotation.x = -Math.PI / 2; ground.position.set(0, 0, 7 - 17); ground.renderOrder = 1; scene.add(ground);
+const PINE_PIX = [pine(0), pine(1), pine(2)];
+for (const [x, z, s] of PINES) { const p = PINE_PIX[s]; billboard(p, p.w, p.h, p.w >> 1, p.h - 1, { shadow: true }).place(x, 0, z); }
+const cb = cabin(); billboard(cb, cb.w, cb.h, cb.w >> 1, cb.h - 1, { shadow: true }).place(CABIN[0], 0, CABIN[1]);
+snowPix.texture(); const snowS = billboard(snowPix, SFW, SFH, SFW >> 1, SFH - 1).place(0, 3, LAYERS.snowfall);
+const wl = wall(), wallS = billboard(wl, wl.w, wl.h, wl.w >> 1, wl.h - 1).place(0, -3, LAYERS.wall);
+const ARCH = { sit: archer('sit'), look: archer('look'), point: archer('point') }, ARCH_HD = { sit: archerHD('sit'), look: archerHD('look'), point: archerHD('point') };
+const archS = billboard(ARCH.sit, AW, AH, AX, AF), archHDS = billboard(ARCH_HD.sit, AW * 2, AH * 2, AX * 2, AF * 2, { ppu: PPU * 2 });
+drawCandle(0); const candleS = billboard(candlePix, 10, 22, 5, 21);
+// things that sit on the wall move with it: their place is a point of the wall's own plane, a little in front of it
+const onWall = (px, py, lift = .06) => { wallS.mesh.updateMatrixWorld(); return wallS.mesh.localToWorld(new THREE.Vector3((px - wl.w / 2) / PPU, (wl.h - 1 - py) / PPU, lift)); };
+
+// =================================================================== the story at time t
+function story(t) {
+  const S = { t };
+  S.aurora = ease(seg(t, ...T.auroraIn)) * (.75 + .25 * Math.sin(t * .6)) + .45 * Math.sin(seg(t, ...T.flare) * Math.PI);
+  S.yaw = lerp(ORBIT.from, ORBIT.to, ease(seg(t, ...ORBIT.over)));
+  S.pose = t >= T.point[0] && t < T.point[1] ? 'point' : t >= T.look ? 'look' : 'sit';
+  S.dim = ease(seg(t, ...T.dim));
+  const shot = SHOTS[SHOTS.findLastIndex(s => t >= s.from)]; S.zoom = shot.zoom; S.on = shot.on;
+  return S;
+}
+
+// =================================================================== the closing words: a 5x7 pixel font with lower case and accents, drawn at the internal resolution
+const PF = {
+  V: ['#...#', '#...#', '#...#', '#...#', '.#.#.', '.#.#.', '..#..'], a: ['', '', '.###.', '....#', '.####', '#...#', '.####'], b: ['#....', '#....', '#.##.', '##..#', '#...#', '#...#', '####.'],
+  c: ['', '', '.###.', '#...#', '#....', '#...#', '.###.'], d: ['....#', '....#', '.##.#', '#..##', '#...#', '#...#', '.####'], e: ['', '', '.###.', '#...#', '#####', '#....', '.###.'],
+  i: ['..#..', '', '.##..', '..#..', '..#..', '..#..', '.###.'], 'í': ['...#.', '..#..', '.##..', '..#..', '..#..', '..#..', '.###.'], l: ['.##..', '..#..', '..#..', '..#..', '..#..', '..#..', '.###.'],
+  m: ['', '', '##.#.', '#.#.#', '#.#.#', '#.#.#', '#.#.#'], n: ['', '', '#.##.', '##..#', '#...#', '#...#', '#...#'], o: ['', '', '.###.', '#...#', '#...#', '#...#', '.###.'],
+  p: ['', '', '####.', '#...#', '#...#', '#...#', '####.', '#....', '#....'], r: ['', '', '#.##.', '##..#', '#....', '#....', '#....'], s: ['', '', '.####', '#....', '.###.', '....#', '####.'],
+  t: ['.#...', '.#...', '####.', '.#...', '.#...', '.#..#', '..##.'], u: ['', '', '#...#', '#...#', '#...#', '#..##', '.##.#'], v: ['', '', '#...#', '#...#', '#...#', '.#.#.', '..#..'],
+  ',': ['', '', '', '', '', '..#..', '..#..', '.#...'], '.': ['', '', '', '', '', '.##..', '.##..'], ' ': [],
+};
+const txt = new Pix(IW, IH), ptextW = (s, sc) => [...s].length * 6 * sc - sc;
+function ptext(x, y, s, sc, top, bot, n) {
+  const ch = [...s], x0 = Math.round(x - ptextW(s, sc) / 2);
+  const pass = (dx, dy, col) => { for (let i = 0; i < Math.min(n, ch.length); i++) { const g = PF[ch[i]]; if (!g) continue; g.forEach((row, r) => [...row].forEach((b, k) => { if (b === '#') txt.r(x0 + i * 6 * sc + k * sc + dx, y + r * sc + dy, sc, sc, col ?? (r < 4 ? top : bot)); })); } };
+  for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) pass(dx, dy, 'q');
+  pass(0, 0);
+}
+function words(t) {
+  txt.clear(); let y = 40;
+  LINES.forEach((L, i) => {
+    const t0 = T.text[i], chars = L.rows.join('').length, shown = Math.floor(seg(t, t0, t0 + T.typeDur) * chars + .001); let left = shown;
+    L.rows.forEach(row => { if (t >= t0) ptext(IW / 2, y, row, 2, L.top, L.bot, Math.max(0, left)); left -= [...row].length; y += 22; });
+    y += 8;
+  });
+  txt.flush();
+}
+
+// =================================================================== frame
+const right = new THREE.Vector3(), up = new THREE.Vector3(), fwd = new THREE.Vector3();
+function draw(t) {
+  const S = story(t), yaw = rad(S.yaw), pitch = rad(PITCH);
+  sky(t, S); snowfall(t); drawCandle(t);
+  for (const s of SPRITES) { s.mesh.rotation.set(-pitch, yaw, 0, 'YXZ'); if (s.shadow) s.place(s.x, s.y, s.z); }
+  // glue the archer and the candle to the sill
+  const seat = onWall(110, 262, .1), cand = onWall(176, 262, .08);
+  for (const a of [archS, archHDS]) a.place(seat.x, seat.y, seat.z); candleS.place(cand.x, cand.y, cand.z);
+  const hd = S.zoom === 2; archS.show(!hd); archHDS.show(hd); (hd ? archHDS : archS).setMap((hd ? ARCH_HD : ARCH)[S.pose]);
+  // draw order: farther first (as seen along the camera), no depth writes between sprites
+  const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+  [...SPRITES].sort((a, b) => (a.x * dir.x + a.z * dir.z) - (b.x * dir.x + b.z * dir.z)).forEach((s, i) => { s.mesh.renderOrder = 10 + i; });
+  archS.mesh.renderOrder = archHDS.mesh.renderOrder = 10 + SPRITES.length; candleS.mesh.renderOrder = 11 + SPRITES.length;
+  // camera: orbits slowly around a point just beyond the window (near layers slide one way, far ones the other), snapped to whole pixels
+  const target = S.on === 'archer' ? onWall(112, 196, 0) : onWall(120, 190, 0).add(new THREE.Vector3(0, 0, -4)), zm = S.zoom;
+  if (camera.zoom !== zm) { camera.zoom = zm; camera.updateProjectionMatrix(); }
+  camera.position.copy(target).addScaledVector(dir, 120); camera.lookAt(target); camera.updateMatrixWorld();
+  right.setFromMatrixColumn(camera.matrixWorld, 0); up.setFromMatrixColumn(camera.matrixWorld, 1); fwd.setFromMatrixColumn(camera.matrixWorld, 2);
+  const px = 1 / PPU / zm, cr = camera.position.dot(right), cu = camera.position.dot(up), cf = camera.position.dot(fwd);
+  camera.position.copy(right.clone().multiplyScalar(Math.round(cr / px) * px)).add(up.clone().multiplyScalar(Math.round(cu / px) * px)).add(fwd.clone().multiplyScalar(cf));
+  camera.updateMatrixWorld();
+  gl.setRenderTarget(rt); gl.render(scene, camera);
+  post.uniforms.dim.value = S.dim; gl.setRenderTarget(null); gl.render(postScene, postCam);
+  octx.imageSmoothingEnabled = false; octx.drawImage(gl.domElement, 0, 0, IW, IH, 0, 0, OUT_W, OUT_H);
+  if (t >= T.text[0]) { words(t); octx.drawImage(txt.c, 0, 0, IW, IH, 0, 0, OUT_W, OUT_H); }
+  return S;
+}
+
+// =================================================================== sound effects (no music)
+function sfx(ac, out) {
+  let a = 77; const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = r() * 2 - 1;
+  const noise = (t, dur, f0, f1, g, type = 'bandpass', q = 1) => { const s = ac.createBufferSource(), f = ac.createBiquadFilter(), v = ac.createGain(); s.buffer = nb; s.loop = true; f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur); v.gain.setValueAtTime(.0001, t); v.gain.linearRampToValueAtTime(g, t + Math.min(.05, dur * .3)); v.gain.exponentialRampToValueAtTime(.0005, t + dur); s.connect(f).connect(v).connect(out); s.start(t, r() * 1.5); s.stop(t + dur + .05); };
+  const tone = (t, dur, f0, f1, g, type = 'sine') => { const o = ac.createOscillator(), v = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur); v.gain.setValueAtTime(.0001, t); v.gain.linearRampToValueAtTime(g, t + .02); v.gain.exponentialRampToValueAtTime(.0005, t + dur); o.connect(v).connect(out); o.start(t); o.stop(t + dur + .05); };
+  { const s = ac.createBufferSource(), f = ac.createBiquadFilter(), v = ac.createGain(), l = ac.createOscillator(), lg = ac.createGain(); s.buffer = nb; s.loop = true; f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = .8; v.gain.value = .03; l.frequency.value = .17; lg.gain.value = .018; l.connect(lg).connect(v.gain); s.connect(f).connect(v).connect(out); s.start(0); l.start(0); s.stop(DURATION); l.stop(DURATION); }   // wind outside
+  for (let t = .2; t < DURATION - .2; t += .12 + r() * .5) noise(t, .03, 2000 + r() * 2500, 1200, .015 + r() * .02, 'bandpass', 4);   // the candle
+  noise(T.star[0], T.star[1] - T.star[0], 6000, 1500, .05, 'bandpass', 3);                                                         // the shooting star
+  [2637, 3136, 3951, 3136, 2637].forEach((f, i) => tone(T.star[0] + .15 + i * .14, .5, f, f * .99, .035, 'triangle'));
+  tone(T.point[0], .25, 880, 1320, .03, 'triangle');                                                                                 // "look!"
+  T.text.forEach((t0, i) => [523, 659, 784].forEach((f, k) => tone(t0 + k * .09, 1.6, f * (1 + i * .125), f * (1 + i * .125), .025, 'triangle')));
+}
+function encodeWav(ab) {
+  const ch = ab.numberOfChannels, sr = ab.sampleRate, n = ab.length, buf = new ArrayBuffer(44 + n * ch * 2), v = new DataView(buf), ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); ws(8, 'WAVE'); ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true); v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); ws(36, 'data'); v.setUint32(40, n * ch * 2, true);
+  const d = Array.from({ length: ch }, (_, c) => ab.getChannelData(c)); let o = 44; for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const x = Math.max(-1, Math.min(1, d[c][i])); v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7FFF, true); o += 2; }
+  const bytes = new Uint8Array(buf); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(bin);
+}
+window.__renderAudio = async () => { const sr = 48000, ac = new OfflineAudioContext(2, Math.ceil(sr * DURATION), sr), m = ac.createGain(), c = ac.createDynamicsCompressor(); m.gain.value = .9; c.threshold.value = -16; c.ratio.value = 3; m.connect(c).connect(ac.destination); sfx(ac, m); return encodeWav(await ac.startRendering()); };
+
+// =================================================================== boot
+const params = new URLSearchParams(location.search), RENDER = params.has('render');
+if (RENDER) document.body.classList.add('render');
+window.__meta = { W: OUT_W, H: OUT_H, FPS, DURATION };
+window.__draw = t => draw(t);
+window.__ready = true;
+if (RENDER) draw(+params.get('t') || 0);
+else {
+  const ui = id => document.getElementById(id); let playing = true, base = 0, t0 = performance.now();
+  const now = () => playing ? (base + (performance.now() - t0) / 1000) % DURATION : base, seek = s => { base = clamp(s, 0, DURATION - .001); t0 = performance.now(); };
+  ui('play').onclick = () => { base = now(); playing = !playing; t0 = performance.now(); ui('play').textContent = playing ? 'Pausa' : 'Reproducir'; };
+  ui('time').oninput = () => { seek(+ui('time').value / 10); if (playing) ui('play').click(); };
+  addEventListener('keydown', e => { if (e.code === 'Space') { ui('play').click(); e.preventDefault(); } if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') { if (playing) ui('play').click(); seek(base + (e.code === 'ArrowLeft' ? -.1 : .1)); } });
+  (function loop() { const t = now(); draw(t); ui('time').value = Math.round(t * 10); ui('timeV').textContent = t.toFixed(1) + ' s'; requestAnimationFrame(loop); })();
+}
+</script>
+</body></html>

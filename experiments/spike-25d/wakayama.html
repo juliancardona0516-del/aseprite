@@ -340,7 +340,7 @@ const postScene = new THREE.Scene(), postCam = new THREE.OrthographicCamera(-1, 
 const sa = SUN.az * Math.PI / 180, sunDir = new THREE.Vector3(), SHEAR = new THREE.Matrix4();
 function setSun(elDeg) { const se = elDeg * Math.PI / 180; sunDir.set(Math.sin(sa) * Math.cos(se), Math.sin(se), Math.cos(sa) * Math.cos(se)); SHEAR.set(1, -sunDir.x / sunDir.y, 0, 0, 0, 0, 0, .012, 0, -sunDir.z / sunDir.y, 1, 0, 0, 0, 0, 1); }
 setSun(SUN.el);
-const TILT = -(Math.PI / 2 - PITCH * Math.PI / 180);   // every billboard leans back to be parallel to the screen: 1 texel = 1 pixel
+const TILT = -PITCH * Math.PI / 180;                    // every billboard leans back by the camera's pitch, so it is parallel to the screen: 1 texel = 1 pixel
 const SPRITES = [];
 function billboard(pix, w, h, ax, ay, opts = {}) {      // ax, ay: the foot pixel
   const ppu = opts.ppu || PPU, geo = new THREE.PlaneGeometry(w / ppu, h / ppu); geo.translate((w / 2 - (ax + .5)) / ppu, (h / 2 - (h - 1 - ay)) / ppu, 0);
