@@ -4,14 +4,18 @@ Prueba de viabilidad: sprites pixel art como *billboards* dentro de una escena 3
 sol direccional y sombras, renderizado a baja resolución y escalado *nearest-neighbor*.
 
 Es un experimento aislado. No toca Aseprite (`src/`, `laf/`, CMake) ni la skill de Pixelbolt
-(`.claude/skills/pixelbolt-pixel-art/`), y no añade dependencias al repo.
+(`.claude/skills/pixelbolt-pixel-art/`), y no añade dependencias al repo. De Pixelbolt solo usa su salida:
+los PNG que exporta.
 
 ## Archivos
 
 | Archivo | Qué es |
 |---|---|
-| `index.html` | El spike completo: escena, controles y la función determinista `window.__draw(t)` |
-| `capture.cjs` | Opcional: renderiza la animación de 12 s fotograma a fotograma a PNG (base para un exportador de video) |
+| `index.html` | El spike: escena, pase final de paleta y fundido, controles y la función determinista `window.__draw(t)` |
+| `assets/sprites.js`, `assets/*.png` | Sprites exportados por Pixelbolt 0.14.0 (caballero con idle de 4 fotogramas, roca `shale`), 3.5 KB en total |
+| `build-assets.cjs` | Regenera `assets/` ejecutando el CLI de Pixelbolt sobre las fuentes |
+| `assets-src/knight.poses.json` | Fuente del caballero: el rig `hero` de los ejemplos de Pixelbolt, recoloreado |
+| `capture.cjs` | Exporta la animación de 12 s fotograma a fotograma y la codifica en MP4, con Three.js servido en local |
 
 ## Cómo ejecutarlo
 
@@ -23,88 +27,109 @@ python3 -m http.server 8000
 # abrir http://localhost:8000/
 ```
 
-También funciona abriendo `index.html` directamente.
+También funciona abriendo `index.html` directamente, porque los sprites van en un script clásico con PNG en data URI.
 
-**Controles:** animación automática (cámara y sol), sliders de giro e inclinación de cámara y de azimut y altura del sol,
-tipo de sombra, filtro del shadow map, corrección vertical de los sprites, ajuste de cámara a la rejilla de píxel
-y resolución interna.
+**Controles del panel:**
+- Animación automática.
+- Cámara: giro, inclinación, rotación en 8 o 16 direcciones o continua, y ajuste a la rejilla de píxel.
+- Sol: azimut y altura.
+- Sombras: plana o shadow map, y su filtro.
+- Estética: cuantización a paleta, tramado, suelo nuevo o anterior, sprites de Pixelbolt o del spike,
+  corrección vertical, sprites iluminados o no, y resolución interna.
 
-**Teclas:** ←/→ gira la cámara, ↑/↓ la inclina, A/D mueve el sol y espacio pausa la animación.
+**Teclas:** ←/→ gira un paso de cámara, ↑/↓ inclina, A/D mueve el sol y espacio pausa.
 
-**Parámetros por URL** para comparar modos: `?shadowMode=planar|sun|billboard`, `&shadowType=basic|pcf`,
-`&correct=tilt|stretch|none`, `&snap=0`, `&res=6|4|3`. Con `?render` se ocultan los controles y la escena
-solo avanza cuando se llama a `window.__draw(t)`.
+**Parámetros por URL** (para comparar o exportar):
 
-**Capturar fotogramas** (requiere Node y Playwright, que no son dependencias del repo):
+| Parámetro | Valores |
+|---|---|
+| `camMode` | `d8`, `d16`, `cont` |
+| `fade` | segundos de fundido; `0` = corte seco |
+| `shadowMode` | `planar`, `sun`, `billboard` |
+| `shadowType` | `basic`, `pcf` |
+| `quant` | `0` / `1` |
+| `spread` | 0–12 |
+| `ground` | `soft`, `fine` |
+| `sprites` | `pixelbolt`, `grid` |
+| `correct` | `tilt`, `stretch`, `none` |
+| `lit` | `0` / `1` |
+| `snap` | `0` / `1` |
+| `res` | `6`, `4`, `3` |
+| `render` | oculta el panel; la escena solo avanza con `window.__draw(t)` |
+
+### Exportar video
+
+Requiere Node, Playwright con Chromium y ffmpeg (ninguno es dependencia del repo):
 
 ```bash
-node capture.cjs out/frames 30
-ffmpeg -framerate 30 -i out/frames/%04d.png -c:v libx264 -pix_fmt yuv420p preview.mp4
+node capture.cjs                                # -> out/preview.mp4 (y out/frames/*.png)
+node capture.cjs --query "fade=0" --out out/cortes.mp4
 ```
 
-Sin internet, define `THREE_JS=/ruta/three.module.min.js` (la misma versión 0.160.0, por ejemplo de `npm pack three@0.160.0`)
-y el script la sirve en lugar del CDN.
+Three.js se sirve siempre en local, nunca desde el CDN. Usa `THREE_JS=/ruta/three.module.min.js` si está definido;
+si no, descarga una vez `three@0.160.0` con `npm pack` en `.cache/`, que está ignorado por git.
+
+### Regenerar los sprites de Pixelbolt
+
+```bash
+node build-assets.cjs                           # usa npx -y pixelbolt@0.14.0
+PIXELBOLT="node /ruta/Pixelbolt/bin/pixelbolt.js" node build-assets.cjs
+```
 
 ## Cómo está hecho
 
-- **Resolución interna:** WebGL a 180×320, sin antialias y con `pixelRatio` 1. Cada fotograma se copia a un canvas
-  de salida de 1080×1920 con `imageSmoothingEnabled = false`, así que el escalado es exacto ×6.
-- **Densidad de píxel:** cámara ortográfica a 16 px de pantalla por unidad de mundo, igual que la densidad de los
-  sprites (16 texels por unidad), para que un texel ocupe un píxel. Las texturas usan `NearestFilter` y no tienen mipmaps.
-- **Sprites:** se generan en memoria desde cuadrículas de texto con la misma paleta que las escenas anteriores
-  (personaje, árbol, roca). Cada uno es un quad con el pivote en los pies, `alphaTest` 0.5 para el recorte,
-  y gira en el eje Y hacia la cámara.
-- **Sombras**, tres modos para comparar:
-  - `planar` (por defecto): el sprite, orientado hacia el sol, se aplasta sobre el suelo con una matriz de
-    proyección a lo largo del rayo del sol. Se dibuja en un color sólido con el alpha del propio sprite.
-  - `sun`: shadow map de la luz direccional, proyectado por un quad invisible orientado al sol. El recorte usa
-    `customDepthMaterial` con `alphaTest`, así que la sombra tiene la silueta del sprite y no la del rectángulo.
-  - `billboard`: shadow map proyectado por el mismo quad que mira a la cámara. Lo dejé para mostrar por qué no sirve.
-- **Corrección vertical:** con la cámara a 50° un quad vertical se ve aplastado (alto × sen 50° ≈ 0.77).
-  - `tilt` inclina el quad hasta quedar paralelo a la pantalla, de modo que un texel ocupa exactamente un píxel.
-  - `stretch` lo estira 1/sen.
-  - `none` lo deja vertical.
+- **Pipeline:** escena → render target de 180×320 (sin antialias) → pase final en un shader → canvas → copia ×6
+  nearest a 1080×1920. El pase final hace dos cosas:
+  - Un **fundido tramado** (Bayer 4×4) entre dos vistas, para los cambios de dirección de cámara.
+  - **Cuantiza** cada píxel al color de paleta más cercano. La paleta se arma sola al cargar, con todos los
+    colores de los sprites y del suelo, más el fondo y la sombra; hay tramado opcional.
+- **Cámara:** ortográfica a 16 px de pantalla por unidad de mundo, la misma densidad que los sprites y el suelo,
+  así que un texel ocupa un píxel.
+  - Por defecto gira en **8 direcciones** (pasos de 45°) con un fundido de 0.35 s. La rotación continua sigue
+    disponible para comparar.
+  - La inclinación es fija en la animación.
+  - El paneo se ajusta a píxeles enteros.
+- **Suelo:** textura de 128×128 texels hecha con manchas grandes de ruido de baja frecuencia, bordes duros y
+  sin tramado fino. Es periódica, así que no hay juntas visibles.
+- **Sprites:**
+  - Caballero y roca vienen de Pixelbolt, con el pivote en los pies tomado del atlas exportado (`anchorPx`).
+    El caballero reproduce su idle con la duración de cada fotograma del atlas.
+  - El árbol sigue siendo una cuadrícula del spike: Pixelbolt no trae un árbol entre sus ejemplos.
+  - Son quads que miran a la cámara, inclinados hasta quedar paralelos a la pantalla (1 texel = 1 píxel), con
+    `alphaTest` para el recorte.
+  - **Sin iluminar**, para no sombrear dos veces un arte que ya viene sombreado.
+  - **Ordenados por la profundidad de los pies** y sin escribir profundidad entre ellos, para que dos sprites
+    inclinados nunca se corten.
+- **Sombras**, por defecto **planas**: el sprite, orientado al sol, se aplasta sobre el suelo con la matriz del
+  rayo del sol, en un color sólido de la paleta.
+  - Los modos de shadow map (`sun`, `billboard`) siguen disponibles. El shadow map tiene 16 texels por unidad,
+    igual que el suelo, y recorta por alpha.
+  - En esos modos el suelo pasa a material iluminado, porque necesita recibir la sombra.
 
-## Evaluación
+## Resultados
 
-**Qué funcionó bien**
-- **Sprites nítidos al rotar** con `tilt` y el ajuste a rejilla: en fotogramas consecutivos de una rotación rápida
-  el personaje conserva cada píxel. Solo se desplaza en saltos de 1 px.
-- **Sombras planas:** limpias, con la silueta exacta del sprite y bordes duros. Siguen al sol sin parpadear y
-  no dependen de la cámara. Encajan con la estética: un color sólido de la paleta, sin degradados.
-- **Recorte por alpha** en el shadow map (`customDepthMaterial` + `alphaTest`): no salen sombras rectangulares.
-- **Escalado ×6 nearest:** sin antialias en ningún punto de la cadena.
-- **Listo para exportar:** el render es una función pura del tiempo (`__draw(t)`), así que el mismo enfoque de
-  captura de las escenas anteriores funciona. `capture.cjs` lo demuestra.
+**Medición:** porcentaje de píxeles internos que cambian entre fotogramas seguidos de la animación de 12 s
+(360 fotogramas, 30 fps).
 
-**Problemas visuales detectados**
-1. **El suelo "hierve" al rotar la cámara.** La textura de hierba, muestreada con nearest bajo un ángulo
-   arbitrario, cambia de patrón en cada fotograma. Los bordes del camino salen en escalones con píxeles
-   de 1 y 2 de ancho mezclados. Es la mayor pérdida de estética "dibujada a mano".
-2. **Sombras de shadow map (`sun`)** más débiles y algo difusas que las planas. Con `pcf` se emborronan;
-   con `basic` el escalonado de los texels no se alinea con la rejilla de pantalla.
-3. **Shadow map desde el billboard (`billboard`):** cuando la cámara mira de lado respecto al sol, la sombra
-   se vuelve una línea casi invisible. Cambia de forma al girar la cámara: no sirve.
-4. **Sin corrección (`none`)** los sprites salen achatados verticalmente y con filas de píxel desiguales.
-   `stretch` los alarga y además alarga el área que tapan.
-5. **La sombra plana** también se deforma en diagonal (shear), así que sus píxeles no siempre son cuadrados.
-   No se proyecta sobre otros sprites, y dos sombras que se cruzan no se oscurecen más: queda un solo tono.
-6. **Bordes del mundo:** al girar la cámara aparecen las esquinas del suelo y el fondo.
+| Versión | Media | Mediana | Percentil 90 | Fotogramas casi idénticos al anterior (<1 %) |
+|---|---|---|---|---|
+| Primera (rotación continua, suelo fino) | 48 % | 44 % | 71 % | 0 de 359 |
+| Con los ajustes | 4.3 % | 0.3 % | 10 % | 204 de 359 |
 
-**Ajustes recomendados antes de exportar video**
-1. **Rotación de cámara en saltos discretos** (8 u 16 direcciones con un corte o un fundido corto) en lugar de
-   una rotación continua. Alternativa: rotación solo en cámara lenta durante transiciones. Es lo que más reduce
-   el "hervor" del suelo.
-2. **Suelo menos ruidoso:** tiles con menos detalle de alta frecuencia (manchas grandes en vez de dither fino),
-   o dibujar el suelo como capa 2D de tiles alineada a pantalla cuando la cámara no gira.
-3. **Paso de paleta al final:** cuantizar el fotograma a la paleta (un shader de pantalla completa o una
-   tabla al copiar al canvas de salida). Así la iluminación Lambert y el sol no meten colores fuera de paleta.
-   La versión de Pixelbolt `Pixel.post` hace exactamente esto.
-4. **Sombras planas por defecto,** con color de paleta fijo, y shadow map solo si hace falta que la sombra caiga
-   sobre otros objetos. En ese caso, sombras duras (`basic`) con el shadow map alineado a la rejilla del suelo.
-5. **`tilt` como corrección por defecto,** fijando el orden de dibujo por profundidad en pies (y-sort) si dos
-   sprites inclinados se cruzan.
-6. **Exportador de video:** reutilizar `__draw(t)` y la captura por CDP del renderer de motion-kit, con Three.js
-   servido localmente (con versión fija, sin CDN) para que el render no dependa de la red.
-7. **Assets reales:** cargar los PNG que exporta Pixelbolt (`render`) como texturas, con `NearestFilter`,
-   en lugar de las cuadrículas de texto del spike.
+Fuera de las transiciones el suelo ya no "hierve". Solo cambian los píxeles de lo que se mueve: el caballero que
+respira, la sombra que sigue al sol y los pasos de 1 px del paneo.
+
+**Qué queda por resolver:**
+1. **El fundido entre direcciones** es legible pero ruidoso a mitad de camino, porque mezcla dos ángulos con un
+   tramado. Con `fade=0` es un corte seco limpio. Conviene decidir según el ritmo del video. Otra opción es una
+   transición más gráfica (barrido, iris o pixelado) como las de las escenas anteriores.
+2. **La sombra plana** se deforma en diagonal según el sol, así que sus píxeles no siempre son cuadrados.
+   No cae sobre otros sprites.
+3. **Los modos de shadow map** oscurecen todo el suelo al pasar a material iluminado, y tras cuantizar el
+   verde salta de tono según la altura del sol. Si se necesitan, hay que tratar la iluminación en el pase de
+   paleta (rampas por material) en lugar de dejarla a Lambert.
+4. **Árbol:** sigue siendo una cuadrícula del spike; falta un árbol hecho con Pixelbolt.
+5. **Bordes del mundo:** el suelo mide 40×40 unidades. Para paneos largos hace falta un suelo en mosaico que
+   siga a la cámara.
+6. **Rotar en 8 direcciones** implica que todos los sprites se ven igual desde cualquier lado. Para personajes
+   que deben mostrar espalda o perfil hace falta un sprite por dirección (los `views` de Pixelbolt).

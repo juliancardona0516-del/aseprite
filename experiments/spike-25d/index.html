@@ -4,18 +4,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!--
   SPIKE AISLADO — pixel art "2.5D" (sprites billboard en una escena 3D).
-  No forma parte de Aseprite ni de la skill de Pixelbolt; no importa ni modifica nada de ellos.
-  Única dependencia: three.js 0.160.0 desde CDN (import map), nada instalado en el repo.
+  No forma parte de Aseprite ni de la skill de Pixelbolt; solo lee los PNG que Pixelbolt exporta (assets/sprites.js).
+  Única dependencia: three.js 0.160.0 desde CDN (import map). capture.cjs lo sirve en local para exportar.
   Ver README.md en esta carpeta.
 -->
 <style>
-  :root { --bg: #14161c; --panel: #1f232c; --text: #d7dbe3; --muted: #8b93a3; --accent: #e8b84a; }
+  :root { --bg: #14161c; --panel: #1f232c; --text: #d7dbe3; --muted: #8b93a3; }
   html, body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
   #wrap { display: flex; gap: 16px; padding: 16px; align-items: flex-start; flex-wrap: wrap; }
   #out { height: min(92vh, 960px); aspect-ratio: 9 / 16; image-rendering: pixelated; background: #000; display: block; }
-  #panel { background: var(--panel); border-radius: 8px; padding: 12px 14px; width: 300px; }
+  #panel { background: var(--panel); border-radius: 8px; padding: 12px 14px; width: 310px; }
   #panel h1 { font-size: 14px; margin: 0 0 8px; }
-  #panel label { display: grid; grid-template-columns: 112px 1fr 44px; gap: 6px; align-items: center; margin: 6px 0; }
+  #panel h2 { font-size: 12px; margin: 12px 0 4px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  #panel label { display: grid; grid-template-columns: 112px 1fr 44px; gap: 6px; align-items: center; margin: 5px 0; }
   #panel label.chk { grid-template-columns: 1fr; }
   #panel select, #panel input[type=range] { width: 100%; }
   #panel .val { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
@@ -24,6 +25,7 @@
   body.render #wrap { padding: 0; }
   body.render #out { height: auto; width: 1080px; }
 </style>
+<script src="assets/sprites.js"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" } }</script>
 </head><body>
 <div id="wrap">
@@ -31,22 +33,23 @@
   <div id="panel">
     <h1>Spike 2.5D · billboards + sol</h1>
     <label class="chk"><span><input type="checkbox" id="auto" checked> Animación automática (cámara + sol)</span></label>
-    <label>Cámara: giro <input type="range" id="yaw" min="-180" max="180" value="20"><span class="val" id="yawV"></span></label>
-    <label>Cámara: inclinación <input type="range" id="pitch" min="30" max="75" value="50"><span class="val" id="pitchV"></span></label>
-    <label>Sol: azimut <input type="range" id="sunAz" min="-180" max="180" value="-60"><span class="val" id="sunAzV"></span></label>
-    <label>Sol: altura <input type="range" id="sunEl" min="10" max="85" value="38"><span class="val" id="sunElV"></span></label>
-    <label>Sombra <select id="shadowMode">
-      <option value="planar">plana (sprite proyectado)</option>
-      <option value="sun">shadow map · cara al sol</option>
-      <option value="billboard">shadow map · cara a cámara</option>
-    </select><span></span></label>
-    <label>Filtro shadow map <select id="shadowType"><option value="basic">duro (Basic)</option><option value="pcf">suave (PCF)</option></select><span></span></label>
-    <label>Corrección vertical <select id="correct">
-      <option value="tilt">inclinar hacia cámara</option>
-      <option value="stretch">estirar alto 1/cos</option>
-      <option value="none">ninguna (vertical)</option>
-    </select><span></span></label>
+    <h2>Cámara</h2>
+    <label>Giro <input type="range" id="yaw" min="-180" max="180" value="45"><span class="val" id="yawV"></span></label>
+    <label>Inclinación <input type="range" id="pitch" min="30" max="75" value="50"><span class="val" id="pitchV"></span></label>
+    <label>Rotación <select id="camMode"><option value="d8">8 direcciones + fundido</option><option value="d16">16 direcciones + fundido</option><option value="cont">continua</option></select><span></span></label>
     <label class="chk"><span><input type="checkbox" id="snap" checked> Ajustar cámara a la rejilla de píxel</span></label>
+    <h2>Sol y sombras</h2>
+    <label>Azimut <input type="range" id="sunAz" min="-180" max="180" value="-60"><span class="val" id="sunAzV"></span></label>
+    <label>Altura <input type="range" id="sunEl" min="10" max="85" value="38"><span class="val" id="sunElV"></span></label>
+    <label>Sombra <select id="shadowMode"><option value="planar">plana (sprite proyectado)</option><option value="sun">shadow map · cara al sol</option><option value="billboard">shadow map · cara a cámara</option></select><span></span></label>
+    <label>Filtro shadow map <select id="shadowType"><option value="basic">duro (Basic)</option><option value="pcf">suave (PCF)</option></select><span></span></label>
+    <h2>Estética</h2>
+    <label class="chk"><span><input type="checkbox" id="quant" checked> Cuantizar a la paleta</span></label>
+    <label>Tramado <input type="range" id="spread" min="0" max="12" value="0"><span class="val" id="spreadV"></span></label>
+    <label>Suelo <select id="ground"><option value="soft">manchas grandes</option><option value="fine">dither fino (antes)</option></select><span></span></label>
+    <label>Sprites <select id="sprites"><option value="pixelbolt">PNG de Pixelbolt</option><option value="grid">cuadrículas del spike</option></select><span></span></label>
+    <label>Corrección vertical <select id="correct"><option value="tilt">inclinar hacia cámara</option><option value="stretch">estirar alto 1/sen</option><option value="none">ninguna (vertical)</option></select><span></span></label>
+    <label class="chk"><span><input type="checkbox" id="lit"> Iluminar sprites (doble sombreado)</span></label>
     <label>Resolución interna <select id="res"><option value="6">180×320 (×6)</option><option value="4">270×480 (×4)</option><option value="3">360×640 (×3)</option></select><span></span></label>
     <p>Teclas: ←/→ gira la cámara, ↑/↓ inclina, A/D mueve el sol, espacio pausa la animación.</p>
   </div>
@@ -56,227 +59,266 @@ import * as THREE from 'three';
 
 // ------------------------------------------------------------------ config
 const OUT_W = 1080, OUT_H = 1920, FPS = 30, DURATION = 12;
-const PPU = 16;                                         // sprite texels per world unit; also screen px per unit at the default zoom
-const RENDER = new URLSearchParams(location.search).has('render');
+const PPU = 16;                                         // sprite texels per world unit = screen px per unit at the default zoom
+let TRANSITION = .35;                                   // seconds of dithered dissolve when the camera snaps to a new direction (?fade=0 for a hard cut)
+const BG = '#1b2a3a', SHADOW = '#1e2a1e';
+const params = new URLSearchParams(location.search), RENDER = params.has('render');
 if (RENDER) document.body.classList.add('render');
 
-// ------------------------------------------------------------------ palette + sprites as text (one char = one texel)
+// ------------------------------------------------------------------ palette and in-memory sprites (fallback when the Pixelbolt PNGs are absent)
 const PAL = {
-  o: '#1a1228', k: '#2b1e33', b: '#4f3a40', w: '#7a5845', W: '#a8805a',
-  g: '#18503c', G: '#24773c', l: '#3f9e3a', L: '#78c63e', y: '#c4ec5c',
-  s: '#5c62ae', S: '#9a9ccc', T: '#cfd0ea', r: '#e0483a', R: '#8f2438',
-  c: '#ffd9b3', d: '#e0a078', a: '#2a62e0', A: '#1c45b0', f: '#f4c542', e: '#ffffff',
+  o: '#1a1228', k: '#2b1e33', b: '#4f3a40', w: '#7a5845', W: '#a8805a', g: '#18503c', G: '#24773c', l: '#3f9e3a', L: '#78c63e', y: '#c4ec5c',
+  s: '#5c62ae', S: '#9a9ccc', T: '#cfd0ea', r: '#e0483a', R: '#8f2438', c: '#ffd9b3', a: '#2a62e0', A: '#1c45b0', f: '#f4c542', e: '#ffffff',
 };
-const SPRITES = {
-  knight: [
-    '.....rr.........',
-    '....rRrr........',
-    '....oooooo......',
-    '...oTTTSSSo.....',
-    '...oTSSSSSo.....',
-    '...oScccoSo.....',
-    '...oSoccooSo....',
-    '...oScccccSo....',
-    '....oSSSSSo.....',
-    '...oTTTTTTTo....',
-    '..oRTSSSSSSaao..',
-    '..oRSSSSSSaAfAo.',
-    '..oRSffffSaffAo.',
-    '..oRSSSSSSaAfAo.',
-    '..oRSSSSSSoaAo..',
-    '..oRoSSSSSo.ao..',
-    '...oSSoSSo..o...',
-    '...oSSooSSo.....',
-    '...oSSo.oSSo....',
-    '...oSSo..oSo....',
-    '..okkko..okko...',
-    '..okkko..okkko..',
-    '...ooo....ooo...',
-  ],
-  tree: [
-    '.........oooooo.........',
-    '.......ooLLLyyLoo.......',
-    '.....ooLLLLLLyyLLoo.....',
-    '....oLLlLLLLLLLyyLLo....',
-    '...oLlllLLLLLLLLLLLLo...',
-    '...olllllLLLLLLLLLLLo...',
-    '..oGlllllllLLLLLLLLLLo..',
-    '..oGGllllllllLLLLLLLLo..',
-    '.oGGGGllllllllllLLLLLLo.',
-    '.oGGGGGllllllllllllLLLo.',
-    '.ogGGGGGGlllllllllllLlo.',
-    '.ogggGGGGGGGllllllllllo.',
-    '.oggggGGGGGGGGGlllllllo.',
-    '..ogggggGGGGGGGGGGGlGo..',
-    '..ogggggggGGGGGGGGGGGo..',
-    '...oggggggggggGGGGGGo...',
-    '....oooggggggggggooo....',
-    '.......ooooWwooooo......',
-    '..........oWwo..........',
-    '..........oWwo..........',
-    '..........oWwbo.........',
-    '.........oWWwbo.........',
-    '.........oWwwbo.........',
-    '........oWWwwbbo........',
-    '.......oWWwwwwbbo.......',
-    '.......ooooooooooo......',
-  ],
-  rock: [
-    '.....oooooo.....',
-    '...ooTTTTSSoo...',
-    '..oTTTTSSSSSso..',
-    '.oTTTSSSSSSSsso.',
-    '.oTSSSSSSSssssso',
-    'oSSSSSSSsssssso.',
-    'oSSSSSsssssssso.',
-    '.osssssssssssoo.',
-    '..ooooooooooo...',
-  ],
+const GRIDS = {
+  knight: ['.....rr.........', '....rRrr........', '....oooooo......', '...oTTTSSSo.....', '...oTSSSSSo.....', '...oScccoSo.....', '...oSoccooSo....', '...oScccccSo....',
+    '....oSSSSSo.....', '...oTTTTTTTo....', '..oRTSSSSSSaao..', '..oRSSSSSSaAfAo.', '..oRSffffSaffAo.', '..oRSSSSSSaAfAo.', '..oRSSSSSSoaAo..', '..oRoSSSSSo.ao..',
+    '...oSSoSSo..o...', '...oSSooSSo.....', '...oSSo.oSSo....', '...oSSo..oSo....', '..okkko..okko...', '..okkko..okkko..', '...ooo....ooo...'],
+  tree: ['.........oooooo.........', '.......ooLLLyyLoo.......', '.....ooLLLLLLyyLLoo.....', '....oLLlLLLLLLLyyLLo....', '...oLlllLLLLLLLLLLLLo...', '...olllllLLLLLLLLLLLo...',
+    '..oGlllllllLLLLLLLLLLo..', '..oGGllllllllLLLLLLLLo..', '.oGGGGllllllllllLLLLLLo.', '.oGGGGGllllllllllllLLLo.', '.ogGGGGGGlllllllllllLlo.', '.ogggGGGGGGGllllllllllo.',
+    '.oggggGGGGGGGGGlllllllo.', '..ogggggGGGGGGGGGGGlGo..', '..ogggggggGGGGGGGGGGGo..', '...oggggggggggGGGGGGo...', '....oooggggggggggooo....', '.......ooooWwooooo......',
+    '..........oWwo..........', '..........oWwo..........', '..........oWwbo.........', '.........oWWwbo.........', '.........oWwwbo.........', '........oWWwwbbo........',
+    '.......oWWwwwwbbo.......', '.......ooooooooooo......'],
+  rock: ['.....oooooo.....', '...ooTTTTSSoo...', '..oTTTTSSSSSso..', '.oTTTSSSSSSSsso.', '.oTSSSSSSSssssso', 'oSSSSSSSsssssso.', 'oSSSSSsssssssso.', '.osssssssssssoo.', '..ooooooooooo...'],
 };
-function spriteTexture(rows) {
-  const h = rows.length, w = Math.max(...rows.map(r => r.length)), c = document.createElement('canvas');
-  c.width = w; c.height = h; const x = c.getContext('2d');
+const nearest = t => { t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; return t; };
+function gridFrame(rows) {
+  const h = rows.length, w = Math.max(...rows.map(r => r.length)), c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d', { willReadFrequently: true });
   rows.forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { x.fillStyle = PAL[ch]; x.fillRect(i, j, 1, 1); } }));
-  const t = new THREE.CanvasTexture(c);
-  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
-  return { tex: t, w, h };
+  return { canvas: c, w, h, ms: 200, anchor: { x: Math.floor(w / 2), y: h - 1 } };
 }
-function groundTexture() {                             // 128x128 texels = 8x8 world units, dithered grass with a dirt path
-  const n = 128, c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d');
+async function pngFrame(f) {
+  const img = new Image(); img.src = f.src; await img.decode();
+  const c = document.createElement('canvas'); c.width = f.w; c.height = f.h; c.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0);
+  return { canvas: c, w: f.w, h: f.h, ms: f.ms, anchor: f.anchor };
+}
+
+// ------------------------------------------------------------------ ground textures: 128x128 texels = 8x8 world units, tileable
+function valueNoise(n, cell, seed) {                     // periodic value noise on an n x n grid
+  const g = n / cell, R = (i, j) => { let h = (i % g + g) % g * 374761393 + (j % g + g) % g * 668265263 + seed * 982451653; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  return (x, y) => { const fx = x / cell, fy = y / cell, i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j, s = t => t * t * (3 - 2 * t);
+    const a = R(i, j), b = R(i + 1, j), c = R(i, j + 1), d = R(i + 1, j + 1); return a + (b - a) * s(u) + (c - a) * s(v) + (a - b - c + d) * s(u) * s(v); };
+}
+function groundCanvas(style) {
+  const n = 128, c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d', { willReadFrequently: true }), k = 2 * Math.PI / n;
   const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-  let s = 7; const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const big = valueNoise(n, 32, 3), mid = valueNoise(n, 16, 7);
+  let s = 11; const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-    const path = Math.abs(i - 64 - Math.sin(j / n * Math.PI * 4) * 10) < 9;             // periodic in j so the tiles join
-    const k = 2 * Math.PI / n, v = (Math.sin(i * k * 4) + Math.cos(j * k * 3) + Math.sin((i + j) * k * 2)) / 6 + .5, d = B[(j & 3) * 4 + (i & 3)] / 16;
-    x.fillStyle = path ? (v + d * .5 > .7 ? PAL.W : PAL.w) : (v + d * .6 > .78 ? PAL.L : v + d * .6 > .45 ? PAL.l : PAL.G);
-    if (!path && rnd() > .985) x.fillStyle = rnd() > .5 ? PAL.e : PAL.f;
+    const pathD = Math.abs(i - 64 - Math.sin(j * k * 2) * 10);
+    if (style === 'fine') {                              // the first version: fine dither everywhere (shimmers when the camera turns)
+      const v = (Math.sin(i * k * 4) + Math.cos(j * k * 3) + Math.sin((i + j) * k * 2)) / 6 + .5, d = B[(j & 3) * 4 + (i & 3)] / 16;
+      x.fillStyle = pathD < 9 ? (v + d * .5 > .7 ? PAL.W : PAL.w) : (v + d * .6 > .78 ? PAL.L : v + d * .6 > .45 ? PAL.l : PAL.G);
+      if (pathD >= 9 && rnd() > .985) x.fillStyle = rnd() > .5 ? PAL.e : PAL.f;
+    } else {                                             // big flat patches, hard edges, no texel-level noise
+      const v = big(i, j) * .7 + mid(i, j) * .3;
+      x.fillStyle = pathD < 8 ? (pathD < 4 ? PAL.W : PAL.w) : pathD < 9.5 ? PAL.G : v > .62 ? PAL.L : v > .4 ? PAL.l : PAL.G;
+    }
     x.fillRect(i, j, 1, 1);
   }
-  const t = new THREE.CanvasTexture(c);
-  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3);
-  return t;
+  if (style !== 'fine') for (const [cx, cy, col] of [[22, 30, PAL.e], [96, 20, PAL.f], [40, 100, PAL.f], [110, 88, PAL.e], [18, 70, PAL.e]]) for (const [dx, dy] of [[0, 0], [2, 1], [-1, 2], [1, -2]]) { x.fillStyle = col; x.fillRect(cx + dx, cy + dy, 1, 1); }
+  return c;
 }
 
-// ------------------------------------------------------------------ renderer at low internal resolution, copied to the output with nearest neighbour
+// ------------------------------------------------------------------ renderer: scene -> low-res target(s) -> post pass (dissolve + palette) -> canvas -> x6 nearest
 const gl = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true, alpha: false });
-gl.setPixelRatio(1);
-gl.shadowMap.enabled = true;
+gl.setPixelRatio(1); gl.shadowMap.enabled = true; gl.autoClear = true;
 const out = document.getElementById('out'), octx = out.getContext('2d');
-let IW = 0, IH = 0;
-function setResolution(scale) { IW = OUT_W / scale; IH = OUT_H / scale; gl.setSize(IW, IH, false); camera.left = -IW / PPU / 2; camera.right = IW / PPU / 2; camera.top = IH / PPU / 2; camera.bottom = -IH / PPU / 2; camera.updateProjectionMatrix(); }
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color('#1b2a3a');
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 200);
+const rtOpts = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, generateMipmaps: false };
+let IW = 0, IH = 0, rtA = null, rtB = null;
+function setResolution(scale) {
+  IW = OUT_W / scale; IH = OUT_H / scale; gl.setSize(IW, IH, false);
+  Object.assign(camera, { left: -IW / PPU / 2, right: IW / PPU / 2, top: IH / PPU / 2, bottom: -IH / PPU / 2 }); camera.updateProjectionMatrix();
+  rtA?.dispose(); rtB?.dispose(); rtA = new THREE.WebGLRenderTarget(IW, IH, rtOpts); rtB = new THREE.WebGLRenderTarget(IW, IH, rtOpts);
+}
+const MAXPAL = 64;
+const post = new THREE.ShaderMaterial({
+  uniforms: { tA: { value: null }, tB: { value: null }, mixP: { value: 0 }, quant: { value: 1 }, spread: { value: 0 }, palN: { value: 0 }, pal: { value: Array.from({ length: MAXPAL }, () => new THREE.Vector3()) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+  fragmentShader: `
+    uniform sampler2D tA, tB; uniform float mixP, spread; uniform int quant, palN; uniform vec3 pal[${MAXPAL}]; varying vec2 vUv;
+    float bayer4(vec2 p){ int x = int(mod(p.x, 4.)), y = int(mod(p.y, 4.)), i = y * 4 + x;
+      int m[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5); return (float(m[i]) + .5) / 16.; }
+    vec3 toSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(.0031308, c)); }
+    void main(){
+      float th = bayer4(floor(gl_FragCoord.xy));
+      vec3 c = toSRGB(mixP > th ? texture2D(tB, vUv).rgb : texture2D(tA, vUv).rgb);     // ordered-dither dissolve between two views
+      if (quant == 1) {                                                                // snap to the nearest palette colour
+        c += (th - .5) * spread;
+        float best = 1e9; vec3 bc = c;
+        for (int i = 0; i < ${MAXPAL}; i++) { if (i >= palN) break; vec3 d = c - pal[i]; float e = dot(d * d, vec3(.3, .59, .11)); if (e < best) { best = e; bc = pal[i]; } }
+        c = bc;
+      }
+      gl_FragColor = vec4(c, 1.);
+    }`,
+  depthTest: false, depthWrite: false,
+});
+const postScene = new THREE.Scene(), postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
 
-// ground
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), new THREE.MeshLambertMaterial({ map: groundTexture() }));
-ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-
-// lights: sky fill + the sun
+// ------------------------------------------------------------------ the scene
+const scene = new THREE.Scene(); scene.background = new THREE.Color(BG);
+const groundTex = { soft: nearest(new THREE.CanvasTexture(groundCanvas('soft'))), fine: nearest(new THREE.CanvasTexture(groundCanvas('fine'))) };
+for (const t of Object.values(groundTex)) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 5); }
+const groundBasic = new THREE.MeshBasicMaterial({ map: groundTex.soft }), groundLit = new THREE.MeshLambertMaterial({ map: groundTex.soft });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), groundBasic);
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; ground.renderOrder = 0; scene.add(ground);
 scene.add(new THREE.HemisphereLight('#bcd4ff', '#4a3a2a', 1.4));
 const sun = new THREE.DirectionalLight('#fff1d6', 2.4);
-sun.castShadow = true;
-sun.shadow.mapSize.set(512, 512);                       // 512 texels over 32 world units = 16 texels/unit, the same density as the sprites
-Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 80 });
-sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0;
+sun.castShadow = true; sun.shadow.mapSize.set(512, 512);                // 512 texels over 32 world units = 16 texels/unit, same as the ground and the sprites
+Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 80 }); sun.shadow.bias = -0.0008;
 scene.add(sun, sun.target);
 
-// billboards: a visible quad that faces the camera, a hidden quad that faces the sun (casts the shadow map shadow),
-// and a flat "planar" shadow: the sun-facing quad squashed onto the ground, drawn with the sprite's own alpha
 const BILLBOARDS = [];
-function addBillboard(name, x, z) {
-  const { tex, w, h } = spriteTexture(SPRITES[name]);
-  const geo = new THREE.PlaneGeometry(w / PPU, h / PPU); geo.translate(0, h / PPU / 2, 0);              // pivot at the feet
-  const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: .5, side: THREE.DoubleSide });
-  const visible = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex, alphaTest: .5, side: THREE.DoubleSide }));
-  visible.customDepthMaterial = depth;
-  const caster = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, alphaTest: .5, side: THREE.DoubleSide, colorWrite: false, depthWrite: false }));
+function makeBillboard(name, frames, x, z) {
+  const tex = frames.map(f => nearest(new THREE.CanvasTexture(f.canvas)));
+  const { w, h, anchor } = frames[0], geo = new THREE.PlaneGeometry(w / PPU, h / PPU);
+  geo.translate((w / 2 - (anchor.x + .5)) / PPU, (h / 2 - (h - 1 - anchor.y)) / PPU, 0);          // pivot = the anchor pixel's foot, from the Pixelbolt atlas
+  const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex[0], alphaTest: .5, side: THREE.DoubleSide });
+  const flatMat = new THREE.MeshBasicMaterial({ map: tex[0], alphaTest: .5, side: THREE.DoubleSide });
+  const visible = new THREE.Mesh(geo, flatMat);
+  const litMat = new THREE.MeshLambertMaterial({ map: tex[0], alphaTest: .5, side: THREE.DoubleSide });
+  visible.customDepthMaterial = depth; visible.frustumCulled = false;
+  const caster = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex[0], alphaTest: .5, side: THREE.DoubleSide, colorWrite: false, depthWrite: false }));
   caster.customDepthMaterial = depth; caster.castShadow = true; caster.frustumCulled = false;
-  const flat = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, alphaTest: .5, color: '#1e2a1e', depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide }));
-  flat.matrixAutoUpdate = false; flat.renderOrder = 1;
-  for (const m of [visible, caster, flat]) scene.add(m);
-  BILLBOARDS.push({ name, x, z, w, h, visible, caster, flat });
+  const flat = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex[0], alphaTest: .5, color: SHADOW, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide }));
+  flat.matrixAutoUpdate = false; flat.renderOrder = 1; flat.frustumCulled = false;
+  const b = { name, x, z, frames, tex, depth, flatMat, litMat, visible, caster, flat, group: [visible, caster, flat] };
+  b.setFrame = i => { const t = tex[i]; for (const m of [flatMat, litMat, depth, caster.material, flat.material]) m.map = t; };
+  return b;
 }
-addBillboard('tree', -2.2, -1.6);
-addBillboard('rock', 1.9, -0.4);
-addBillboard('knight', 0.2, 1.2);
+let SET = {};                                            // 'pixelbolt' and 'grid' billboard sets; only one is in the scene
 
-// ------------------------------------------------------------------ state: either the deterministic timeline or the controls
+// ------------------------------------------------------------------ state
 const ui = id => document.getElementById(id);
-const P = { yaw: 20, pitch: 50, sunAz: -60, sunEl: 38, shadowMode: 'planar', shadowType: 'basic', correct: 'tilt', snap: true, res: 6, auto: true };
-const ease = p => -(Math.cos(Math.PI * p) - 1) / 2;
-function timeline(t) {                                 // what the auto animation (and a future video export) does at time t
+const P = { yaw: 45, pitch: 50, sunAz: -60, sunEl: 38, camMode: 'd8', snap: true, shadowMode: 'planar', shadowType: 'basic', quant: true, spread: 0, ground: 'soft', sprites: 'pixelbolt', correct: 'tilt', lit: false, res: 6, auto: true };
+const ease = p => -(Math.cos(Math.PI * p) - 1) / 2, rad = d => d * Math.PI / 180, cyc = (x, n) => ((Math.floor(x) % n) + n) % n;
+function timeline(t) {                                   // what the auto animation (and the video export) does at time t
   const p = (t % DURATION) / DURATION;
-  return {
-    yaw: -45 + 90 * ease(Math.min(1, p * 2)) - 90 * ease(Math.max(0, p * 2 - 1)) + 20,
-    pitch: 50 + 8 * Math.sin(p * Math.PI * 2),
-    sunAz: -150 + 300 * p, sunEl: 30 + 22 * Math.sin(p * Math.PI),
-    pan: [Math.sin(p * Math.PI * 2) * 1.2, Math.cos(p * Math.PI * 2) * .6],
-  };
+  return { yaw: 45 + 100 * Math.sin(p * Math.PI * 2), pitch: 50, sunAz: -150 + 300 * p, sunEl: 30 + 22 * Math.sin(p * Math.PI), pan: [Math.sin(p * Math.PI * 2) * 1.2, Math.cos(p * Math.PI * 2) * .6] };
 }
-const rad = d => d * Math.PI / 180;
-const tmp = new THREE.Vector3(), right = new THREE.Vector3(), up = new THREE.Vector3(), fwd = new THREE.Vector3();
+const stepOf = () => P.camMode === 'd16' ? 22.5 : P.camMode === 'd8' ? 45 : 0;
+const quantize = yaw => { const s = stepOf(); return s ? Math.round(yaw / s) * s : yaw; };
+let manual = { shown: null, prev: null, since: -1 };     // live-only state for the transition when a slider snaps to a new direction
+function viewYaws(t, A) {                                // [yaw shown, previous yaw, dissolve progress]
+  if (!stepOf()) return [A.yaw, A.yaw, 1];
+  if (P.auto) {
+    const now = quantize(A.yaw); let tc = t;
+    for (let dt = 1 / 120; dt <= TRANSITION; dt += 1 / 120) { if (quantize(timeline(t - dt).yaw) !== now) { tc = t - dt + 1 / 120; break; } }
+    const prev = tc < t ? quantize(timeline(tc - 1 / 120).yaw) : now;
+    return [now, prev, tc < t ? Math.min(1, (t - tc) / TRANSITION) : 1];
+  }
+  const now = quantize(A.yaw);
+  if (manual.shown === null) manual = { shown: now, prev: now, since: -1 };
+  if (now !== manual.shown) manual = { shown: now, prev: manual.shown, since: t };
+  return [now, manual.prev, manual.since < 0 ? 1 : Math.min(1, (t - manual.since) / TRANSITION)];
+}
 
-function draw(t) {
-  const A = P.auto ? timeline(t) : { yaw: P.yaw, pitch: P.pitch, sunAz: P.sunAz, sunEl: P.sunEl, pan: [0, 0] };
-  const yaw = rad(A.yaw), pitch = rad(A.pitch);
-  // ortho camera on a sphere around the target, high angle
-  const target = new THREE.Vector3(A.pan[0], .8, A.pan[1]);
+// ------------------------------------------------------------------ one view of the scene into a target
+const right = new THREE.Vector3(), up = new THREE.Vector3(), fwd = new THREE.Vector3();
+function renderView(yawDeg, pitchDeg, A, t, rt) {
+  const yaw = rad(yawDeg), pitch = rad(pitchDeg), target = new THREE.Vector3(A.pan[0], .8, A.pan[1]);
   const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
   camera.position.copy(target).addScaledVector(dir, 40); camera.lookAt(target); camera.updateMatrixWorld();
-  if (P.snap) {                                         // move the camera in whole screen pixels so panning doesn't shimmer
+  if (P.snap) {                                          // move the camera in whole screen pixels so panning doesn't shimmer
     right.setFromMatrixColumn(camera.matrixWorld, 0); up.setFromMatrixColumn(camera.matrixWorld, 1); fwd.setFromMatrixColumn(camera.matrixWorld, 2);
     const px = 1 / PPU, cr = camera.position.dot(right), cu = camera.position.dot(up), cf = camera.position.dot(fwd);
     camera.position.copy(right.multiplyScalar(Math.round(cr / px) * px)).add(up.multiplyScalar(Math.round(cu / px) * px)).add(fwd.multiplyScalar(cf));
     camera.updateMatrixWorld();
   }
-  // the sun
   const sa = rad(A.sunAz), se = rad(A.sunEl), sunDir = new THREE.Vector3(Math.sin(sa) * Math.cos(se), Math.sin(se), Math.cos(sa) * Math.cos(se));
-  sun.target.position.set(0, 0, 0); sun.position.copy(sunDir).multiplyScalar(40); sun.target.updateMatrixWorld();
-  gl.shadowMap.type = P.shadowType === 'pcf' ? THREE.PCFShadowMap : THREE.BasicShadowMap;
-  // billboards
-  const shear = new THREE.Matrix4().set(1, -sunDir.x / sunDir.y, 0, 0, 0, 0, 0, .012, 0, -sunDir.z / sunDir.y, 1, 0, 0, 0, 0, 1);    // project onto y = 0 along the sun ray
-  for (const b of BILLBOARDS) {
-    const v = b.visible; v.position.set(b.x, 0, b.z); v.rotation.set(0, yaw, 0); v.scale.set(1, 1, 1);
-    if (P.correct === 'tilt') v.rotation.set(-(Math.PI / 2 - pitch), yaw, 0, 'YXZ');                  // lean back so the quad is parallel to the screen
-    if (P.correct === 'stretch') v.scale.y = 1 / Math.cos(Math.PI / 2 - pitch);
+  sun.position.copy(sunDir).multiplyScalar(40); sun.target.updateMatrixWorld();
+  const shear = new THREE.Matrix4().set(1, -sunDir.x / sunDir.y, 0, 0, 0, 0, 0, .012, 0, -sunDir.z / sunDir.y, 1, 0, 0, 0, 0, 1);   // project onto y = 0 along the sun ray
+  const list = SET[P.sprites];
+  for (const b of list) {
+    const v = b.visible; v.material = P.lit ? b.litMat : b.flatMat; v.position.set(b.x, 0, b.z); v.rotation.set(0, yaw, 0); v.scale.set(1, 1, 1);
+    if (P.correct === 'tilt') v.rotation.set(-(Math.PI / 2 - pitch), yaw, 0, 'YXZ');                  // lean back until the quad is parallel to the screen
+    if (P.correct === 'stretch') v.scale.y = 1 / Math.sin(pitch);
     v.castShadow = P.shadowMode === 'billboard';
+    if (b.frames.length > 1) { const idle = b.frames.length - 1; b.setFrame(1 + cyc(t * 1000 / b.frames[1].ms, idle)); }
     b.caster.position.set(b.x, 0, b.z); b.caster.rotation.set(0, sa, 0); b.caster.visible = P.shadowMode === 'sun';
     b.caster.updateMatrix(); b.flat.matrix.multiplyMatrices(shear, b.caster.matrix); b.flat.visible = P.shadowMode === 'planar';
   }
-  sun.castShadow = P.shadowMode !== 'planar';
-  gl.render(scene, camera);
-  octx.imageSmoothingEnabled = false;
-  octx.drawImage(gl.domElement, 0, 0, IW, IH, 0, 0, OUT_W, OUT_H);
-  return A;
+  // y-sort: far sprites first, no depth writes between them, so tilted quads never cut into each other
+  [...list].sort((a, b) => (a.x * dir.x + a.z * dir.z) - (b.x * dir.x + b.z * dir.z)).forEach((b, i) => { b.visible.renderOrder = 10 + i; b.flatMat.depthWrite = b.litMat.depthWrite = false; });
+  gl.setRenderTarget(rt); gl.render(scene, camera);
+}
+
+let palReady = false;
+function draw(t) {
+  const A = P.auto ? timeline(t) : { yaw: P.yaw, pitch: P.pitch, sunAz: P.sunAz, sunEl: P.sunEl, pan: [0, 0] };
+  const usesMap = P.shadowMode !== 'planar';
+  sun.castShadow = usesMap; gl.shadowMap.type = P.shadowType === 'pcf' ? THREE.PCFShadowMap : THREE.BasicShadowMap;
+  ground.material = usesMap ? groundLit : groundBasic; groundBasic.map = groundLit.map = groundTex[P.ground];
+  const [yawNow, yawPrev, p] = viewYaws(t, A);
+  renderView(yawNow, A.pitch, A, t, rtA);
+  if (p < 1) renderView(yawPrev, A.pitch, A, t, rtB);
+  post.uniforms.tA.value = p < 1 ? rtB.texture : rtA.texture; post.uniforms.tB.value = rtA.texture; post.uniforms.mixP.value = p < 1 ? p : 1;
+  post.uniforms.quant.value = P.quant && palReady ? 1 : 0; post.uniforms.spread.value = P.spread / 100;
+  gl.setRenderTarget(null); gl.render(postScene, postCam);
+  octx.imageSmoothingEnabled = false; octx.drawImage(gl.domElement, 0, 0, IW, IH, 0, 0, OUT_W, OUT_H);
+  return { ...A, yaw: yawNow };
+}
+
+// ------------------------------------------------------------------ the palette for the final pass: every colour the scene is drawn with
+function collectPalette(canvases) {
+  const count = new Map(), hex = (r, g, b) => (r << 16) | (g << 8) | b;
+  for (const c of canvases) { const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 127) { const k = hex(d[i], d[i + 1], d[i + 2]); count.set(k, (count.get(k) || 0) + 1); } }
+  for (const h of [BG, SHADOW]) { const k = parseInt(h.slice(1), 16); count.set(k, 1e9); }
+  const cols = [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAXPAL).map(([k]) => k);
+  cols.forEach((k, i) => post.uniforms.pal.value[i].set((k >> 16 & 255) / 255, (k >> 8 & 255) / 255, (k & 255) / 255));
+  post.uniforms.palN.value = cols.length; palReady = true;
+  return cols.length;
 }
 
 // ------------------------------------------------------------------ controls
 const KEYS = ['yaw', 'pitch', 'sunAz', 'sunEl'];
-function syncUI(A) { for (const k of KEYS) { if (P.auto) ui(k).value = Math.round(A[k]); ui(k + 'V').textContent = Math.round(P.auto ? A[k] : P[k]) + '°'; } }
-for (const k of KEYS) ui(k).addEventListener('input', () => { P[k] = +ui(k).value; P.auto = false; ui('auto').checked = false; });
-for (const k of ['shadowMode', 'shadowType', 'correct']) ui(k).addEventListener('change', () => { P[k] = ui(k).value; });
-ui('snap').addEventListener('change', () => { P.snap = ui('snap').checked; });
+function syncUI(A) { for (const k of KEYS) { if (P.auto) ui(k).value = Math.round(A[k]); ui(k + 'V').textContent = Math.round(P.auto ? A[k] : P[k]) + '°'; } ui('spreadV').textContent = P.spread; }
+const stopAuto = () => { if (!P.auto) return; P.auto = false; ui('auto').checked = false; for (const k of KEYS) P[k] = +ui(k).value; };
+for (const k of KEYS) ui(k).addEventListener('input', () => { stopAuto(); P[k] = +ui(k).value; });
+for (const k of ['camMode', 'shadowMode', 'shadowType', 'ground', 'correct']) ui(k).addEventListener('change', () => { P[k] = ui(k).value; manual.shown = null; });
+ui('sprites').addEventListener('change', () => setSprites(ui('sprites').value));
+for (const k of ['snap', 'quant', 'lit']) ui(k).addEventListener('change', () => { P[k] = ui(k).checked; });
+ui('spread').addEventListener('input', () => { P.spread = +ui('spread').value; });
 ui('auto').addEventListener('change', () => { P.auto = ui('auto').checked; if (!P.auto) for (const k of KEYS) P[k] = +ui(k).value; });
 ui('res').addEventListener('change', () => { P.res = +ui('res').value; setResolution(P.res); });
 addEventListener('keydown', e => {
-  const step = { ArrowLeft: ['yaw', -3], ArrowRight: ['yaw', 3], ArrowUp: ['pitch', 2], ArrowDown: ['pitch', -2], KeyA: ['sunAz', -4], KeyD: ['sunAz', 4] }[e.code];
+  const step = { ArrowLeft: ['yaw', -(stepOf() || 3)], ArrowRight: ['yaw', stepOf() || 3], ArrowUp: ['pitch', 2], ArrowDown: ['pitch', -2], KeyA: ['sunAz', -4], KeyD: ['sunAz', 4] }[e.code];
   if (e.code === 'Space') { P.auto = !P.auto; ui('auto').checked = P.auto; if (!P.auto) for (const k of KEYS) P[k] = +ui(k).value; e.preventDefault(); }
-  if (step) { if (P.auto) { P.auto = false; ui('auto').checked = false; for (const k of KEYS) P[k] = +ui(k).value; } const [k, d] = step; P[k] = Math.max(+ui(k).min, Math.min(+ui(k).max, P[k] + d)); ui(k).value = P[k]; e.preventDefault(); }
+  if (step) { stopAuto(); const [k, d] = step; P[k] = Math.max(+ui(k).min, Math.min(+ui(k).max, P[k] + d)); ui(k).value = P[k]; e.preventDefault(); }
 });
+function setSprites(which) {
+  if (!SET[which]) which = 'grid';
+  P.sprites = which; ui('sprites').value = which;
+  for (const [k, list] of Object.entries(SET)) for (const b of list) for (const m of b.group) { if (k === which) scene.add(m); else scene.remove(m); }
+}
 
-// ------------------------------------------------------------------ boot: live loop, or frame-by-frame for a renderer
-setResolution(P.res);
-const params = new URLSearchParams(location.search);
-for (const k of ['shadowMode', 'shadowType', 'correct']) if (params.has(k)) { P[k] = params.get(k); ui(k).value = P[k]; }
-if (params.has('snap')) { P.snap = params.get('snap') !== '0'; ui('snap').checked = P.snap; }
-if (params.has('res')) { P.res = +params.get('res'); ui('res').value = P.res; setResolution(P.res); }
-window.__meta = { W: OUT_W, H: OUT_H, FPS, DURATION };
-window.__draw = t => draw(t);
-window.__ready = true;
-if (!RENDER) { const t0 = performance.now(); (function loop() { syncUI(draw((performance.now() - t0) / 1000)); requestAnimationFrame(loop); })(); }
-else draw(0);
+// ------------------------------------------------------------------ boot
+(async () => {
+  for (const k of ['camMode', 'shadowMode', 'shadowType', 'ground', 'correct', 'sprites']) if (params.has(k)) P[k] = params.get(k);
+  for (const k of ['snap', 'quant', 'lit']) if (params.has(k)) P[k] = params.get(k) !== '0';
+  for (const k of ['res', 'spread']) if (params.has(k)) P[k] = +params.get(k);
+  if (params.has('fade')) TRANSITION = Math.max(1 / 120, +params.get('fade'));
+  for (const k of ['camMode', 'shadowMode', 'shadowType', 'ground', 'correct', 'res', 'spread']) ui(k).value = P[k];
+  for (const k of ['snap', 'quant', 'lit']) ui(k).checked = P[k];
+  setResolution(P.res);
+  const tree = [gridFrame(GRIDS.tree)];
+  SET.grid = [makeBillboard('tree', tree, -2.2, -1.6), makeBillboard('rock', [gridFrame(GRIDS.rock)], 1.9, -.4), makeBillboard('knight', [gridFrame(GRIDS.knight)], .2, 1.2)];
+  const PB = window.PIXELBOLT_SPRITES, canvases = [groundCanvas(P.ground), ...tree.map(f => f.canvas)];
+  if (PB) {
+    const knight = await Promise.all(PB.knight.map(pngFrame)), rock = await Promise.all(PB.rock.map(pngFrame));
+    SET.pixelbolt = [makeBillboard('tree', tree, -2.2, -1.6), makeBillboard('rock', rock, 1.9, -.4), makeBillboard('knight', knight, .2, 1.2)];
+    canvases.push(...knight.map(f => f.canvas), ...rock.map(f => f.canvas));
+  } else console.warn('assets/sprites.js not found: using the in-memory sprites');
+  canvases.push(...SET.grid.flatMap(b => b.frames.map(f => f.canvas)), groundCanvas('soft'), groundCanvas('fine'));
+  collectPalette(canvases);
+  setSprites(P.sprites);
+  window.__meta = { W: OUT_W, H: OUT_H, FPS, DURATION };
+  window.__draw = t => draw(t);
+  window.__ready = true;
+  if (!RENDER) { const t0 = performance.now(); (function loop() { syncUI(draw((performance.now() - t0) / 1000)); requestAnimationFrame(loop); })(); }
+  else draw(0);
+})();
 </script>
 </body></html>
