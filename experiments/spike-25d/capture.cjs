@@ -32,7 +32,9 @@ function localThree() {
     const data = await p.evaluate(t => { window.__draw(t); return document.getElementById('out').toDataURL('image/png'); }, i / fps);
     fs.writeFileSync(path.join(framesDir, String(i).padStart(4, '0') + '.png'), Buffer.from(data.split(',')[1], 'base64'));
   }
-  await b.close(); console.log(`${n} frames -> ${framesDir}`);
-  const ff = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', String(fps), '-i', path.join(framesDir, '%04d.png'), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '16', '-movflags', '+faststart', outMp4], { stdio: 'inherit' });
+  const hasAudio = await p.evaluate(() => typeof window.__renderAudio === 'function'), wav = path.join(framesDir, 'audio.wav');
+  if (hasAudio) fs.writeFileSync(wav, Buffer.from(await p.evaluate(() => window.__renderAudio()), 'base64'));   // pages with sound effects get them muxed in
+  await b.close(); console.log(`${n} frames -> ${framesDir}${hasAudio ? ' + audio.wav' : ''}`);
+  const ff = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', String(fps), '-i', path.join(framesDir, '%04d.png'), ...(hasAudio ? ['-i', wav, '-c:a', 'aac', '-b:a', '192k', '-shortest'] : []), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '16', '-movflags', '+faststart', outMp4], { stdio: 'inherit' });
   console.log(ff.status === 0 ? `video -> ${outMp4}` : 'ffmpeg not available: frames only');
 })();

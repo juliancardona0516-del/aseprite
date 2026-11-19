@@ -43,14 +43,14 @@ const OUT_W = 1080, OUT_H = 1920, IW = 180, IH = 320, FPS = 30, PPU = 16;
 const T = {                                             // the three moments, in seconds
   m1: 0, pan: [1.2, 3.4], rise: [3.0, 4.8], roar: [4.8, 6.0], ready: 5.4,
   m2: 6.2, dive: [6.2, 7.0], windup: 6.5, strike: 7.0, hit: 7.08, hitstop: .16, recoil: [7.25, 7.9], fall: [8.2, 10.0], sheathe: 10.6,
-  m3: 11.2, pickup: 11.4, walk: [12.0, 17.6], end: 18.6,
+  m3: 10.9, back: [10.9, 11.8], pickup: 12.0, nod: [12.6, 13.1], turn: 13.4, walk: [13.7, 19.4], end: 20.4,
 };
 const DURATION = T.end, PITCH = 40;
 const SHOTS = [                                          // zoom 1 = 180x320 px of world; zoom 2 = each texel a 2x2 block (still crisp, still on the grid)
-  { from: 0, zoom: 1 }, { from: 5.0, zoom: 2, on: 'ronin', dy: 3.2 }, { from: 6.2, zoom: 1 }, { from: 7.0, zoom: 2, on: 'strike' }, { from: 7.75, zoom: 1 },
-  { from: 11.2, zoom: 2, on: 'ronin', dy: 2.6 }, { from: 12.6, zoom: 1 },
+  { from: 0, zoom: 1 }, { from: 4.4, zoom: 2, on: 'ronin', dy: 3.2 }, { from: 6.2, zoom: 1 }, { from: 7.0, zoom: 2, on: 'strike' }, { from: 7.75, zoom: 1 },
+  { from: 10.9, zoom: 2, on: 'ronin', dy: 2.6 }, { from: 13.9, zoom: 1 },
 ];
-const SUN = { az: 125, el: 52 };                        // from the right and behind the scene: shadows fall left, towards the camera
+const SUN = { az: 125, el: 52, elFight: 64, climb: [6.0, 6.8] };   // from the right and behind: shadows fall left, towards the camera; the sun climbs as the fight starts
 const RONIN0 = { x: 0, z: 3 }, STRIKE_Z = .7, DRAGON = { x: 2.2, z: -4.4 }, BACKDROP_Z = -13;
 const PATH = [[.1, 11], [0, 5], [0, 3], [-.1, .7], [-1.1, -2.2], [-1.6, -4.6], [-1.2, -6.8], [-.6, -8.6], [-.2, -10.6], [.4, -13]];   // world (x, z); it bends round the pool
 const PROPS = [                                          // [kind, x, z]
@@ -64,7 +64,7 @@ const COL = {
   g: '#18503c', G: '#24773c', l: '#3f9e3a', L: '#78c63e', y: '#c4ec5c',
   s: '#5c62ae', S: '#9a9ccc', T: '#cfd0ea', e: '#ffffff',
   r: '#e0483a', R: '#8f2438', a: '#2a62e0', A: '#1c45b0', B: '#86b8f8', C: '#c2e0fc', N: '#14307a',
-  d: '#e0a078', f: '#f4c542', F: '#f7e08a', t: '#1a3a52', u: '#2c6a62', v: '#4a9a8a', x: '#9fd4c0', m: '#9fd4ff', z: '#1e2a1e',
+  c: '#ffd9b3', d: '#e0a078', f: '#f4c542', F: '#f7e08a', t: '#1a3a52', u: '#2c6a62', v: '#4a9a8a', x: '#9fd4c0', m: '#9fd4ff', z: '#1e2a1e',
 };
 const KEYS = Object.keys(COL), I = Object.fromEntries(KEYS.map((k, i) => [k, i]));
 const LUT = new Uint32Array(KEYS.map(k => { const n = parseInt(COL[k].slice(1), 16); return (0xff << 24) | ((n & 255) << 16) | (((n >> 8) & 255) << 8) | (n >> 16); }));
@@ -88,40 +88,68 @@ class Pix {
 }
 const pattern = (P, x0, y0, rows, map) => rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') P.p(x0 + i, y0 + j, map[ch] ?? ch); }));
 
-// =================================================================== the rōnin, seen from behind (he faces the dragon, then walks away)
+// =================================================================== the rōnin: from behind (facing the dragon, leaving) and from the front (the reaction shot)
 const RW = 34, RH = 52, RX = 17, RF = 50;               // canvas, centre x, feet y
+function kasa(P, X, F) { for (let k = 0; k < 7; k++) { const hw = Math.round(1 + k * 1.75), y = F - 39 + k; for (let i = -hw; i <= hw; i++) P.p(X + i, y, (i + 40) % 4 === 0 ? 'W' : i < 0 ? 'Y' : 'W'); } P.r(X - 12, F - 33, 25, 1, 'w'); }
+function headBack(P, X, F) {                             // blue hair under the hat, then the neck and ears in skin tone
+  P.r(X - 3, F - 32, 7, 4, 'a'); P.r(X + 2, F - 32, 2, 4, 'A'); P.r(X - 3, F - 32, 2, 1, 'B'); P.p(X - 2, F - 28, 'a'); P.p(X + 1, F - 28, 'a');
+  P.p(X - 4, F - 30, 'c'); P.p(X - 4, F - 29, 'd'); P.p(X + 4, F - 30, 'd'); P.p(X + 4, F - 29, 'd');
+  P.r(X - 1, F - 28, 3, 2, 'c'); P.p(X + 1, F - 28, 'd'); P.r(X - 2, F - 26, 5, 1, 'T');
+}
+function headFront(P, X, F, o = {}) {                   // a face: skin, two eyes, a mouth, and the blue fringe and side locks
+  const n = o.nod ? 1 : 0;
+  P.r(X - 3, F - 32 + n, 7, 7, 'c'); P.r(X + 2, F - 32 + n, 2, 7, 'd'); P.r(X - 2, F - 26 + n, 5, 1, 'd'); P.r(X - 1, F - 25 + n, 3, 1, 'd');
+  P.r(X - 4, F - 32 + n, 9, 1, 'a'); P.r(X - 4, F - 31 + n, 2, 1, 'a'); P.p(X - 1, F - 31 + n, 'a'); P.p(X + 1, F - 31 + n, 'a'); P.r(X + 3, F - 31 + n, 2, 1, 'A'); P.p(X - 3, F - 32 + n, 'B');
+  P.r(X - 4, F - 30 + n, 1, 4, 'a'); P.r(X + 4, F - 30 + n, 1, 4, 'A');                                    // side locks frame the face
+  if (o.nod) { P.r(X - 2, F - 28 + n, 2, 1, 'd'); P.r(X + 1, F - 28 + n, 2, 1, 'd'); }                       // eyes closed
+  else { P.r(X - 2, F - 29, 1, 2, 'o'); P.r(X + 2, F - 29, 1, 2, 'o'); P.p(X - 2, F - 29, 'N'); P.p(X + 2, F - 29, 'N'); }
+  P.p(X, F - 26 + n, o.smile ? 'R' : 'd'); if (o.smile) { P.p(X - 1, F - 27 + n, 'R'); P.p(X + 1, F - 27 + n, 'R'); }
+  P.p(X - 4, F - 26, 'w'); P.p(X + 4, F - 26, 'w'); P.p(X - 3, F - 25, 'w'); P.p(X + 3, F - 25, 'w');    // the hat's chin cord
+}
 function ronin(pose, frame = 0) {
-  const P = new Pix(RW, RH), X = RX, walk = pose === 'walk', bindle = walk || pose === 'standB';
+  const P = new Pix(RW, RH), X = RX, front = pose.startsWith('front'), walk = pose === 'walk' || pose === 'frontWalk';
+  const bindle = pose === 'walk' || pose === 'standB' || pose === 'frontB' || pose === 'frontNod';
   const ph = walk ? [0, 1, 0, -1][frame] : 0, bob = walk && frame % 2 === 1 ? -1 : 0, F = RF + bob;
   // legs (dark hakama) and straw sandals
   P.r(X - 4, F - 9 + (ph > 0 ? 1 : 0), 3, 8 - (ph > 0 ? 1 : 0), 'k'); P.r(X + 1, F - 9 + (ph < 0 ? 1 : 0), 3, 8 - (ph < 0 ? 1 : 0), 'k');
   P.r(X - 4, F - 1 - (ph > 0 ? 1 : 0), 3, 1, 'Y'); P.r(X + 1, F - 1 - (ph < 0 ? 1 : 0), 3, 1, 'Y'); P.p(X - 3, F - 7, 'b'); P.p(X + 2, F - 7, 'b');
   // white robe with gold clouds, red obi
   for (let j = 0; j < 19; j++) { const hw = Math.round(4 + j * .18), y = F - 27 + j; P.r(X - hw, y, hw * 2 + 1, 1, 'e'); P.r(X + hw - 1, y, 2, 1, 'T'); }
-  P.r(X - 7, F - 9, 15, 1, 'f');                         // gold hem
+  P.r(X - 7, F - 9, 15, 1, 'f');
   const cloud = ['.ff..', 'f..ff', '.fff.'];
-  pattern(P, X - 4, F - 25, cloud, {}); pattern(P, X + 1, F - 15, cloud, {}); pattern(P, X - 5, F - 13, ['ff.', '..f'], {}); pattern(P, X + 2, F - 23, ['.f', 'ff'], {});
-  P.r(X - 5, F - 19, 11, 2, 'R'); P.r(X - 1, F - 20, 3, 4, 'r'); P.p(X, F - 18, 'R');
-  // sleeves (wide), unless an arm is raised
+  if (front) {
+    pattern(P, X - 6, F - 15, cloud, {}); pattern(P, X + 2, F - 14, ['ff.', '..f'], {}); pattern(P, X - 5, F - 25, ['.f', 'ff'], {});
+    P.line(X + 3, F - 27, X - 1, F - 20, 'T'); P.line(X - 3, F - 27, X, F - 23, 'T'); P.r(X - 1, F - 27, 3, 2, 'c'); P.p(X, F - 25, 'R');   // crossed collar over the throat
+    P.r(X - 5, F - 19, 11, 2, 'R'); P.r(X - 5, F - 19, 11, 1, 'f');
+  } else {
+    pattern(P, X - 4, F - 25, cloud, {}); pattern(P, X + 1, F - 15, cloud, {}); pattern(P, X - 5, F - 13, ['ff.', '..f'], {}); pattern(P, X + 2, F - 23, ['.f', 'ff'], {});
+    P.r(X - 5, F - 19, 11, 2, 'R'); P.r(X - 1, F - 20, 3, 4, 'r'); P.p(X, F - 18, 'R');
+  }
+  // sleeves, and hands in the front view
   const armUp = pose === 'windup' || pose === 'strike';
   P.r(X - 9, F - 26, 4, 10, 'e'); P.r(X - 9, F - 17, 4, 1, 'T');
   if (!armUp) { P.r(X + 6, F - 26, 4, 10, 'e'); P.r(X + 6, F - 17, 4, 1, 'T'); P.r(X + 8, F - 26, 2, 10, 'T'); }
   else { P.r(X + 5, F - 34, 4, 9, 'e'); P.r(X + 7, F - 34, 2, 9, 'T'); P.r(X - 8, F - 33, 4, 8, 'e'); }
-  // nape: short blue hair under the hat
-  P.r(X - 3, F - 31, 7, 5, 'a'); P.r(X + 2, F - 31, 2, 5, 'A'); P.r(X - 3, F - 31, 2, 1, 'B'); P.p(X - 2, F - 27, 'a'); P.p(X + 1, F - 26, 'a'); P.r(X - 2, F - 27, 5, 1, 'T');
-  // kasa: a wide straw cone
-  for (let k = 0; k < 7; k++) { const hw = Math.round(1 + k * 1.75), y = F - 39 + k; for (let i = -hw; i <= hw; i++) P.p(X + i, y, (i + 40) % 4 === 0 ? 'W' : i < 0 ? 'Y' : 'W'); }
-  P.r(X - 12, F - 33, 25, 1, 'w'); P.r(X - 10, F - 32, 21, 1, 'b');
-  // the red sword: sheathed on the left hip, or drawn
-  const sheathed = pose === 'stand' || pose === 'standB' || walk;
-  if (sheathed) { P.line(X - 6, F - 20, X - 12, F - 10, 'R', 2); P.line(X - 7, F - 20, X - 12, F - 11, 'r'); P.r(X - 7, F - 22, 3, 2, 'f'); P.line(X - 5, F - 22, X - 3, F - 25, 'r', 2); }
-  else P.line(X - 6, F - 19, X - 12, F - 9, 'R', 2);    // the empty scabbard stays
-  if (pose === 'ready') { P.r(X + 7, F - 17, 3, 3, 'd'); P.r(X + 6, F - 15, 5, 1, 'f'); P.line(X + 9, F - 14, X + 15, F - 3, 'r', 2); P.line(X + 10, F - 14, X + 16, F - 4, 'e'); }
-  if (pose === 'windup') { P.r(X + 6, F - 36, 3, 2, 'd'); P.r(X + 4, F - 37, 6, 1, 'f'); P.line(X + 6, F - 38, X - 6, F - 49, 'r', 2); P.line(X + 7, F - 38, X - 5, F - 50, 'e'); }
-  if (pose === 'strike') { P.r(X - 1, F - 36, 3, 2, 'd'); P.r(X - 3, F - 37, 7, 1, 'f'); P.line(X, F - 38, X, F - 51, 'r', 2); P.line(X + 1, F - 38, X + 1, F - 51, 'e'); }
-  if (pose === 'follow') { P.r(X - 10, F - 16, 3, 3, 'd'); P.r(X - 12, F - 14, 5, 1, 'f'); P.line(X - 11, F - 13, X - 17, F - 3, 'r', 2); P.line(X - 10, F - 13, X - 16, F - 3, 'e'); }
-  // the bindle on a stick over the right shoulder
-  if (bindle) { P.line(X + 5, F - 24, X + 13, F - 42, 'w', 2); P.disc(X + 13, F - 44, 4, 'A'); P.p(X + 11, F - 45, 'e'); P.p(X + 14, F - 43, 'e'); P.p(X + 13, F - 46, 'e'); P.p(X + 15, F - 45, 'a'); P.r(X + 12, F - 40, 3, 2, 'a'); }
+  if (front) { P.r(X + 7, F - 16, 2, 2, 'c'); if (bindle) P.r(X - 8, F - 26, 2, 2, 'c'); else P.r(X - 8, F - 16, 2, 2, 'c'); }
+  // head and hat
+  if (front) headFront(P, X, F, { nod: pose === 'frontNod', smile: pose === 'frontNod' || pose === 'frontB' }); else headBack(P, X, F);
+  kasa(P, X, F); if (!front) P.r(X - 10, F - 32, 21, 1, 'b');
+  // the red sword
+  if (front) { P.line(X + 6, F - 19, X + 11, F - 24, 'r', 2); P.r(X + 5, F - 20, 3, 2, 'f'); }
+  else {
+    const sheathed = pose === 'stand' || pose === 'standB' || pose === 'walk';
+    if (sheathed) { P.line(X - 6, F - 20, X - 12, F - 10, 'R', 2); P.line(X - 7, F - 20, X - 12, F - 11, 'r'); P.r(X - 7, F - 22, 3, 2, 'f'); P.line(X - 5, F - 22, X - 3, F - 25, 'r', 2); }
+    else P.line(X - 6, F - 19, X - 12, F - 9, 'R', 2);
+    if (pose === 'ready') { P.r(X + 7, F - 17, 3, 3, 'c'); P.r(X + 6, F - 15, 5, 1, 'f'); P.line(X + 9, F - 14, X + 15, F - 3, 'r', 2); P.line(X + 10, F - 14, X + 16, F - 4, 'e'); }
+    if (pose === 'windup') { P.r(X + 6, F - 36, 3, 2, 'c'); P.r(X + 4, F - 37, 6, 1, 'f'); P.line(X + 6, F - 38, X - 6, F - 49, 'r', 2); P.line(X + 7, F - 38, X - 5, F - 50, 'e'); }
+    if (pose === 'strike') { P.r(X - 1, F - 36, 3, 2, 'c'); P.r(X - 3, F - 37, 7, 1, 'f'); P.line(X, F - 38, X, F - 51, 'r', 2); P.line(X + 1, F - 38, X + 1, F - 51, 'e'); }
+    if (pose === 'follow') { P.r(X - 10, F - 16, 3, 3, 'c'); P.r(X - 12, F - 14, 5, 1, 'f'); P.line(X - 11, F - 13, X - 17, F - 3, 'r', 2); P.line(X - 10, F - 13, X - 16, F - 3, 'e'); }
+  }
+  // the bindle on a stick over the right shoulder (his right: our left when he faces us)
+  if (bindle) {
+    const sx = front ? -1 : 1, bx = X + sx * 13;
+    P.line(X + sx * 5, F - 24, bx, F - 42, 'w', 2); P.disc(bx, F - 44, 4, 'A'); P.p(bx - 2, F - 45, 'e'); P.p(bx + 1, F - 43, 'e'); P.p(bx, F - 46, 'e'); P.p(bx + 2, F - 45, 'a'); P.r(bx - 1, F - 40, 3, 2, 'a');
+  }
   return P.outline().flush();
 }
 function bindleProp() { const P = new Pix(22, 12); P.line(1, 10, 15, 6, 'w', 2); P.disc(16, 6, 4, 'A'); P.p(14, 5, 'e'); P.p(17, 7, 'e'); P.p(16, 3, 'e'); P.r(12, 7, 3, 2, 'a'); return P.outline().flush(); }
@@ -259,8 +287,9 @@ const post = new THREE.ShaderMaterial({
 });
 const postScene = new THREE.Scene(), postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
 
-const sa = SUN.az * Math.PI / 180, se = SUN.el * Math.PI / 180, sunDir = new THREE.Vector3(Math.sin(sa) * Math.cos(se), Math.sin(se), Math.cos(sa) * Math.cos(se));
-const SHEAR = new THREE.Matrix4().set(1, -sunDir.x / sunDir.y, 0, 0, 0, 0, 0, .012, 0, -sunDir.z / sunDir.y, 1, 0, 0, 0, 0, 1);
+const sa = SUN.az * Math.PI / 180, sunDir = new THREE.Vector3(), SHEAR = new THREE.Matrix4();
+function setSun(elDeg) { const se = elDeg * Math.PI / 180; sunDir.set(Math.sin(sa) * Math.cos(se), Math.sin(se), Math.cos(sa) * Math.cos(se)); SHEAR.set(1, -sunDir.x / sunDir.y, 0, 0, 0, 0, 0, .012, 0, -sunDir.z / sunDir.y, 1, 0, 0, 0, 0, 1); }
+setSun(SUN.el);
 const TILT = -(Math.PI / 2 - PITCH * Math.PI / 180);   // every billboard leans back to be parallel to the screen: 1 texel = 1 pixel
 const SPRITES = [];
 function billboard(pix, w, h, ax, ay, opts = {}) {      // ax, ay: the foot pixel
@@ -285,8 +314,11 @@ const bd = backdrop(), back = new THREE.Mesh(new THREE.PlaneGeometry(16, 22), ne
 back.geometry.translate(0, 11, 0); back.rotation.set(TILT, 0, 0); back.position.set(.6, 0, BACKDROP_Z); back.renderOrder = 1; scene.add(back);
 waterfall(0); const fall = new THREE.Mesh(new THREE.PlaneGeometry(14 / PPU, FALL_H / PPU), new THREE.MeshBasicMaterial({ map: fallPix.texture() }));
 fall.geometry.translate(0, FALL_H / 2 / PPU, 0); fall.rotation.set(TILT, 0, 0); fall.position.set(.6 + (171 - 128) / PPU, (352 - 330) / PPU * Math.cos(-TILT), BACKDROP_Z - (352 - 330) / PPU * Math.sin(-TILT) + .02); fall.renderOrder = 1; scene.add(fall);
+function shrubs() { const W = 288, H = 34, P = new Pix(W, H); for (let i = 0; i < 70; i++) { const x = hash(i, 1, 21) * W, r = 3 + Math.round(hash(i, 2, 21) * 5), y = H - 2 - r * .6; P.disc(x, y, r, hash(i, 3, 21) > .6 ? 'l' : hash(i, 3, 21) > .25 ? 'G' : 'g'); if (hash(i, 4, 21) > .8) P.p(x - 1, y - r + 1, 'L'); } P.outline('g'); for (let y = 0; y < 12; y++) for (let x = 0; x < W; x++) if (P.d[y * W + x] === 255 && bay(x, y) < .18 * (y / 12) && vnoise(x * .05, 0, 22) > .45) P.p(x, y, 'C'); return P.flush(); }
+const seam = shrubs(); billboard(seam, 288, 34, 144, 33, { shadow: false }).place(.6, 0, BACKDROP_Z + .35);
 const props = PROPS.map(([kind, x, z]) => { const p = kind === 'cedar' ? cedar() : kind === 'lantern' ? lantern() : maple(); return billboard(p, p.w, p.h, p.w >> 1, p.h - 1).place(x, 0, z); });
-const RONIN = { stand: ronin('stand'), standB: ronin('standB'), ready: ronin('ready'), windup: ronin('windup'), strike: ronin('strike'), follow: ronin('follow'), walk: [0, 1, 2, 3].map(f => ronin('walk', f)) };
+const RONIN = { stand: ronin('stand'), standB: ronin('standB'), ready: ronin('ready'), windup: ronin('windup'), strike: ronin('strike'), follow: ronin('follow'), walk: [0, 1, 2, 3].map(f => ronin('walk', f)),
+  front: ronin('front'), frontB: ronin('frontB'), frontNod: ronin('frontNod'), frontWalk: [0, 1, 2, 3].map(f => ronin('frontWalk', f)) };
 const roninS = billboard(RONIN.stand, RW, RH, RX, RF);
 const bindle = bindleProp(), bindleS = billboard(bindle, 22, 12, 11, 11).place(RONIN0.x + .9, 0, RONIN0.z + .3);
 dragon({ t: 0, rise: 1, sink: 0, dive: 0, recoil: 0, roar: 1, flash: 0, hurt: 0, fade: 0 }); fx({}, [0, 0], -9);
@@ -312,13 +344,22 @@ function story(t) {
   if (ta >= T.strike) { pose = 'strike'; z = STRIKE_Z; y = Math.max(0, 1.2 * (1 - seg(ta, T.strike, T.strike + .35) ** 2) * (ta < T.strike + .35 ? 1 : 0)); }
   if (ta >= T.strike + .35) pose = 'follow';
   if (ta >= T.sheathe) pose = 'stand';
-  if (ta >= T.pickup) { pose = 'standB'; const p = seg(ta, T.pickup, T.pickup + .3); y = Math.sin(p * Math.PI) * .4; }
+  if (ta >= T.windup) x = RONIN0.x;
+  if (ta >= T.back[0]) {                                 // he turns to us and walks back to where he left the bindle
+    const d0 = pathLen(RONIN0.x, STRIKE_Z), d1 = pathLen(RONIN0.x, RONIN0.z), p = seg(ta, ...T.back);
+    [x, z] = pathPoint(lerp(d0, d1, p)); y = 0; pose = ta < T.back[1] ? 'frontWalk' : 'front';
+  }
+  if (ta >= T.pickup) { pose = 'frontB'; const p = seg(ta, T.pickup, T.pickup + .3); y = Math.sin(p * Math.PI) * .4; }
+  if (ta >= T.nod[0] && ta < T.nod[1]) pose = 'frontNod';
+  if (ta >= T.turn) pose = 'standB';
   if (ta >= T.walk[0]) {
-    const d0 = pathLen(RONIN0.x, STRIKE_Z), d = d0 + (Math.min(ta, T.walk[1]) - T.walk[0]) * 1.65;
+    const d0 = pathLen(RONIN0.x, RONIN0.z), d = d0 + (Math.min(ta, T.walk[1]) - T.walk[0]) * 1.65;
     [x, z] = pathPoint(d); pose = ta < T.walk[1] ? 'walk' : 'standB';
-  } else if (ta >= T.windup) x = RONIN0.x;
+  }
   S.ronin = { x, y, z, pose, frame: cyc(ta * 7, 4) };
   S.bindle = ta < T.pickup + .1;
+  S.sunEl = lerp(SUN.el, SUN.elFight, ease(seg(ta, ...SUN.climb)));
+  S.dragonShadow = ta >= T.dive[0] ? 'g' : 'z';
   // camera: an establishing tilt down from the pagoda, then hold, then follow him up the path
   const T1 = [.5, 5, -1.6];
   let cam = ta < T.pan[0] ? [.6, 10, BACKDROP_Z] : ta < T.pan[1] ? (() => { const p = ease(seg(ta, ...T.pan)); return [lerp(.6, T1[0], p), lerp(10, T1[1], p), lerp(BACKDROP_Z, T1[2], p)]; })() : T1;
@@ -342,7 +383,9 @@ function draw(t) {
   waterfall(t);
   if (S.dragonVisible) { const head = dragon(S.dragon); fx(S.dragon, head, S.ta); } else if (fxPix.d[0] !== 255 || true) { fxPix.clear().flush(); }
   dragonS.show(S.dragonVisible); fxS.show(S.dragonVisible || (S.ta > T.hit && S.ta < T.hit + 1.6));
-  const R = S.ronin, rp = R.pose === 'walk' ? RONIN.walk[R.frame] : RONIN[R.pose]; roninS.setMap(rp); roninS.place(R.x, R.y, R.z);
+  setSun(S.sunEl); for (const s of SPRITES) s.place(s.x, s.y, s.z);
+  dragonS.shadow.material.color.set(COL[S.dragonShadow]);
+  const R = S.ronin, rp = R.pose === 'walk' ? RONIN.walk[R.frame] : R.pose === 'frontWalk' ? RONIN.frontWalk[R.frame] : RONIN[R.pose]; roninS.setMap(rp); roninS.place(R.x, R.y, R.z);
   bindleS.show(S.bindle);
   // y-sort: farther first (smaller z), no depth writes between sprites
   [...SPRITES].sort((a, b) => a.z - b.z || a.depth - b.depth).forEach((s, i) => { s.mesh.renderOrder = 10 + i; });
@@ -360,6 +403,51 @@ function draw(t) {
   octx.imageSmoothingEnabled = false; octx.drawImage(gl.domElement, 0, 0, IW, IH, 0, 0, OUT_W, OUT_H);
   return S;
 }
+
+// =================================================================== sound effects (no music), rendered offline by capture.cjs into the MP4
+function sfx(ac, out) {
+  const r = (() => { let a = 99; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })();
+  const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = r() * 2 - 1;
+  const noise = (t, dur, f0, f1, g, type = 'bandpass', q = 1) => { const s = ac.createBufferSource(), f = ac.createBiquadFilter(), v = ac.createGain(); s.buffer = nb; s.loop = true; f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur); v.gain.setValueAtTime(.0001, t); v.gain.linearRampToValueAtTime(g, t + Math.min(.04, dur * .3)); v.gain.exponentialRampToValueAtTime(.0005, t + dur); s.connect(f).connect(v).connect(out); s.start(t, r() * 1.5); s.stop(t + dur + .05); };
+  const tone = (t, dur, f0, f1, g, type = 'square', vib = 0) => { const o = ac.createOscillator(), v = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur); if (vib) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = vib; lg.gain.value = f0 * .08; l.connect(lg).connect(o.frequency); l.start(t); l.stop(t + dur); } v.gain.setValueAtTime(.0001, t); v.gain.linearRampToValueAtTime(g, t + .015); v.gain.setValueAtTime(g, t + dur * .5); v.gain.exponentialRampToValueAtTime(.0005, t + dur); o.connect(v).connect(out); o.start(t); o.stop(t + dur + .05); };
+  // the waterfall, all the way through, louder while the camera is near it
+  { const s = ac.createBufferSource(), f = ac.createBiquadFilter(), v = ac.createGain(); s.buffer = nb; s.loop = true; f.type = 'lowpass'; f.frequency.value = 900; v.gain.setValueAtTime(.05, 0); v.gain.linearRampToValueAtTime(.025, T.pan[1]); v.gain.setValueAtTime(.025, T.walk[0]); v.gain.linearRampToValueAtTime(.05, DURATION); s.connect(f).connect(v).connect(out); s.start(0); s.stop(DURATION); }
+  const chirp = t => { tone(t, .07, 2600, 3600, .03); tone(t + .1, .06, 3000, 3900, .025); };
+  [.5, 1.3, 2.4, 14.8, 16.3, 18.6].forEach(chirp);
+  // moment 1: the rumble, the water bursting, the roar, the blade drawn
+  tone(T.rise[0] - .3, T.rise[1] - T.rise[0] + .6, 45, 38, .2, 'sawtooth'); noise(T.rise[0] - .3, T.rise[1] - T.rise[0] + .5, 180, 90, .25, 'lowpass');
+  noise(T.rise[0], 1.2, 3000, 400, .35);
+  for (const [t0, dur] of [[T.roar[0], 1.0], [T.roar[0] + 1.2, .8]]) { tone(t0, dur, 170, 85, .2, 'sawtooth', 26); noise(t0, dur, 600, 200, .12, 'lowpass'); }
+  tone(T.ready, .22, 2400, 5200, .07, 'triangle'); tone(T.ready + .05, .35, 4800, 5000, .03, 'sine');
+  // moment 2: the dive, the leap, the cut, the cry, the fall into the pool
+  noise(T.dive[0], T.dive[1] - T.dive[0], 400, 3000, .14, 'bandpass', 2);
+  tone(T.windup, .2, 300, 700, .1);
+  noise(T.strike - .05, .14, 6000, 1500, .3, 'bandpass', 2);
+  tone(T.hit, .5, 140, 40, .45, 'sine'); noise(T.hit, .6, 2500, 300, .35); tone(T.hit, .9, 2093, 2093, .06, 'triangle'); tone(T.hit + .02, .9, 3136, 3136, .04, 'triangle');
+  tone(T.recoil[0], 1.1, 620, 180, .14, 'sawtooth', 18);
+  tone(T.fall[0], T.fall[1] - T.fall[0], 70, 40, .16, 'sawtooth'); noise(T.fall[0] + .6, 1.6, 2500, 300, .32);
+  for (let k = 0; k < 10; k++) tone(T.fall[0] + 1.2 + k * .09, .08, 500 + r() * 400, 900 + r() * 400, .03, 'sine');                 // bubbles
+  [1568, 1319, 1047, 784].forEach((f, i) => tone(T.fall[1] - .2 + i * .1, .35, f, f, .035, 'triangle'));
+  tone(T.sheathe, .04, 1800, 1500, .06); tone(T.sheathe + .12, .05, 1200, 900, .08);                                               // sheathe: two clicks
+  // moment 3: footsteps back, the bindle, a quiet nod, footsteps away, a closing chime
+  const step = t => { noise(t, .06, 900, 500, .06, 'lowpass'); noise(t, .03, 3000, 2000, .025, 'bandpass', 3); };
+  for (let t = T.back[0] + .1; t < T.back[1]; t += 2 / 7) step(t);
+  noise(T.pickup, .25, 1500, 700, .07); tone(T.pickup + .1, .15, 400, 600, .05, 'triangle');
+  tone(T.nod[0] + .1, .5, 784, 784, .03, 'sine');
+  for (let t = T.walk[0] + .1; t < T.walk[1]; t += 2 / 7) step(t);
+  [523, 659, 784, 1047].forEach((f, i) => tone(T.walk[1] - .6 + i * .18, 1.0, f, f, .04, 'triangle'));
+}
+function encodeWav(ab) {
+  const ch = ab.numberOfChannels, sr = ab.sampleRate, n = ab.length, buf = new ArrayBuffer(44 + n * ch * 2), v = new DataView(buf), ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); ws(8, 'WAVE'); ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true); v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); ws(36, 'data'); v.setUint32(40, n * ch * 2, true);
+  const d = Array.from({ length: ch }, (_, c) => ab.getChannelData(c)); let o = 44; for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const x = Math.max(-1, Math.min(1, d[c][i])); v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7FFF, true); o += 2; }
+  const bytes = new Uint8Array(buf); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(bin);
+}
+window.__renderAudio = async () => {
+  const sr = 48000, ac = new OfflineAudioContext(2, Math.ceil(sr * DURATION), sr), m = ac.createGain(), c = ac.createDynamicsCompressor();
+  m.gain.value = .9; c.threshold.value = -16; c.ratio.value = 3; m.connect(c).connect(ac.destination); sfx(ac, m);
+  return encodeWav(await ac.startRendering());
+};
 
 // =================================================================== boot: live player or frame-by-frame for capture.cjs
 const params = new URLSearchParams(location.search), RENDER = params.has('render');

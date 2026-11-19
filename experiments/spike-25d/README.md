@@ -137,36 +137,49 @@ respira, la sombra que sigue al sol y los pasos de 1 px del paneo.
 
 ## Escena narrativa: Wakayama (`wakayama.html`)
 
-Una escena corta de 18.6 s sobre el mismo pipeline: 180×320 internos, ×6 nearest, sin antialias, paleta fija de
-33 colores cuantizada en el shader, sombras planas y `window.__draw(t)` determinista. Todo el arte se dibuja en
-memoria. No toca `index.html`.
+Una escena corta de 20.4 s con efectos de sonido, sobre el mismo pipeline: 180×320 internos, ×6 nearest, sin
+antialias, paleta fija de 34 colores cuantizada en el shader, sombras planas y `window.__draw(t)` determinista.
+Todo el arte se dibuja en memoria. No toca `index.html`.
 
 ```bash
-python3 -m http.server 8000                      # abrir http://localhost:8000/wakayama.html
-node capture.cjs --page wakayama.html --out out/wakayama.mp4
+python3 -m http.server 8000                      # abrir http://localhost:8000/wakayama.html (muda en el navegador)
+node capture.cjs --page wakayama.html --out out/wakayama.mp4    # MP4 con los efectos de sonido mezclados
 ```
 
 El panel tiene una barra de tiempo, pausa y botones para saltar a cada momento. Con `?render&t=7.0` se ve un
-fotograma suelto.
+fotograma suelto. `capture.cjs` mezcla el audio solo si la página define `window.__renderAudio`; la preview de
+`index.html` sigue saliendo muda, como antes.
 
 **Elenco y escenario**
-- **Rōnin**, visto de espaldas mientras encara al dragón y cuando se marcha: kasa de paja, pelo azul corto,
-  túnica blanca con nubes doradas, obi rojo, espada roja y hatillo azul atado a un palo.
-  Tiene poses de pie, en guardia, preparación, golpe, remate y caminar (4 fotogramas, con y sin hatillo).
+- **Rōnin**, con dos vistas:
+  - **De espaldas** (encarando al dragón y marchándose): kasa de paja, pelo azul corto con cuello y orejas en
+    tono piel, túnica blanca con nubes doradas, obi rojo, espada roja y hatillo azul en un palo.
+  - **De frente** (plano de reacción): cara con piel, ojos y boca, flequillo y mechones azules, el cordón del
+    kasa, cuello cruzado del kimono y la empuñadura roja. Camina, sonríe y asiente con los ojos cerrados.
 - **Dragón**, redibujado en cada fotograma (192×232 texels; unas 6 veces la altura del rōnin).
   Tiene cuerpo serpentino con escamas, vientre dorado, aletas dorsales rojas, tres patas con garras doradas,
   cabeza de frente con astas, melena roja, bigotes largos, barba, y una boca que ruge.
 - **Diorama:** un fondo vertical con cielo, montes, bosque de cedros, la pagoda bermellón de tres niveles y el
-  acantilado con la cascada animada. Delante, la pradera con manchas grandes, el camino de tierra y el estanque
-  del que sale el dragón. Hay cedros, faroles de piedra y arces como billboards con sombra plana.
+  acantilado con la cascada animada. Una franja de arbustos y bruma tapa la unión con la pradera. Delante, la
+  pradera con manchas grandes, el camino de tierra que rodea el estanque y el propio estanque. Hay cedros,
+  faroles de piedra y arces como billboards con sombra plana.
 
 **Los tres momentos** (tiempos en `T` al principio del script)
 
 | Momento | Tiempo | Qué pasa |
 |---|---|---|
-| 1 · El encuentro | 0–6.2 s | Plano de la pagoda y la cascada; la cámara baja hasta el rōnin en el camino. El dragón emerge del estanque y ruge, con una sombra enorme sobre la pradera. Primer plano ×2 del rōnin desenvainando |
-| 2 · La derrota | 6.2–11.2 s | El dragón se lanza en picado y el rōnin salta. Primer plano ×2 del golpe: arco rojo y blanco, destello tramado de 4 fotogramas, congelación de 0.16 s y temblor de cámara en píxeles enteros. El dragón parpadea en rojo, retrocede y cae al estanque disolviéndose en tramado |
-| 3 · La partida | 11.2–18.6 s | Primer plano ×2: recoge el hatillo. Plano general: camina por el camino rodeando el estanque hacia la pagoda, con la cámara siguiéndolo en pasos de píxel |
+| 1 · El encuentro | 0–6.2 s | Plano de la pagoda y la cascada; la cámara baja hasta el rōnin. El dragón emerge del estanque y ruge, con una sombra enorme y oscura. Primer plano ×2 del rōnin desenvainando (4.4–6.2 s) |
+| 2 · La derrota | 6.2–10.9 s | El sol sube y las sombras se acortan; la del dragón pasa a verde oscuro. El dragón se lanza en picado y el rōnin salta. Primer plano ×2 del golpe: arco rojo y blanco, destello tramado, congelación de 0.16 s y temblor en píxeles enteros. El dragón parpadea en rojo, retrocede y cae al estanque disolviéndose. El rōnin enfunda |
+| 3 · La partida | 10.9–20.4 s | Primer plano ×2 (10.9–13.9 s): vuelve de frente hacia la cámara, recoge el hatillo, sonríe y asiente, y se da la vuelta. Plano general: se aleja por el camino hacia la pagoda, con la cámara siguiéndolo en pasos de píxel |
+
+**Sonido** (solo efectos, para mezclar con tu música):
+- **Ambiente:** cascada todo el tiempo y pájaros.
+- **Momento 1:** retumbo y estallido de agua al emerger el dragón, dos rugidos, la espada al desenvainar.
+- **Momento 2:** el picado, el salto, el corte, el impacto con un tañido metálico, el grito del dragón, la caída
+  al estanque con burbujas, una escala descendente al desaparecer y los dos clics al enfundar.
+- **Momento 3:** pasos de vuelta, el hatillo, una nota suave al asentir, pasos al marcharse y un acorde final.
+
+El pico queda en unos −4 dB.
 
 **Decisiones técnicas**
 - **Primeros planos con zoom ×2 entero:** cada texel pasa a ser un bloque de 2×2 píxeles. Siguen nítidos,
@@ -174,16 +187,19 @@ fotograma suelto.
 - **Sin rotación de cámara:** solo paneos ajustados a la rejilla y cortes secos entre planos.
 - **Emerger y hundirse se hacen en el espacio de la textura** del dragón (la imagen se desplaza dentro de su
   lienzo), así que la sombra plana siempre corresponde a la parte visible.
+- **El sol se anima** (`SUN.climb`) y todas las sombras planas se recalculan cada fotograma.
 - **El destello y el corte no proyectan sombra:** van en un billboard de efectos aparte.
 
-**Ajustes visuales recomendados**
-1. **El rōnin en plano general** mide unos 22 px de alto y se lee sobre todo por el sombrero y la túnica.
-   Si el corte final va a móvil, conviene más tiempo en ×2, o un sprite con más detalle para los planos ×2.
-2. **La sombra del dragón** es enorme y muy oscura. Cubre mucha pradera y al rōnin. Funciona como amenaza en
-   el momento 1; para el momento 2, subir el sol o aclarar la sombra un tono la haría menos pesada.
-3. **La costura del diorama:** donde el fondo vertical se une a la pradera se ve una línea recta. Una franja de
-   arbustos o niebla tapando la unión la disimularía.
-4. **Rōnin de frente:** sería útil una versión de frente o de perfil para un plano de reacción, por ejemplo al
-   recoger el hatillo. Ahora siempre se le ve de espaldas.
-5. **Audio:** la escena es muda. Faltan efectos de golpe, rugido y cascada, que se pueden añadir con el mismo
-   enfoque de las escenas anteriores (`window.__renderAudio`).
+**Ajustes aplicados tras la primera versión**
+1. **Legibilidad del rōnin:** más tiempo en ×2 (5.4 s en vez de 3) y una vista de frente con cara para el plano de
+   reacción. De espaldas ya no se lee como "cara azul": el pelo queda arriba y debajo se ven cuello y orejas.
+2. **Sombra del dragón:** el sol sube de 52° a 64° al empezar la pelea, y la sombra del dragón pasa de casi negro
+   a verde oscuro.
+3. **La unión del diorama:** una franja de arbustos con algo de bruma la tapa.
+4. **Plano de reacción:** el rōnin de frente al recoger el hatillo.
+5. **Audio:** efectos de sonido, mezclados por `capture.cjs`.
+
+**Siguientes pasos posibles**
+- El rōnin en plano general sigue midiendo unos 22 px. Si hace falta más detalle, el siguiente paso sería un
+  sprite al doble de densidad solo para los planos ×2.
+- No hay una vista de perfil: el giro de frente a espaldas es un corte, no una animación de vuelta.
