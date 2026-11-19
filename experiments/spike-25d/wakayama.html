@@ -152,6 +152,56 @@ function ronin(pose, frame = 0) {
   }
   return P.outline().flush();
 }
+// =================================================================== the rōnin at double density, only for the x2 close-ups
+// There the camera gives 32 screen px per world unit, so a 68x104 sprite of the same world size lands at exactly
+// 1 texel = 1 pixel: twice the detail of the 34x52 sprite, still on the pixel grid, with a 1-pixel outline.
+const HDW = RW * 2, HDH = RH * 2;
+function roninHD(pose, frame = 0) {
+  const lo = ronin(pose, frame), P = new Pix(HDW, HDH), W2 = HDW, front = pose.startsWith('front'), walk = pose === 'walk' || pose === 'frontWalk';
+  const bob = walk && frame % 2 === 1 ? -1 : 0, X = RX * 2, F = (RF + bob) * 2, nod = pose === 'frontNod', smile = pose === 'frontNod' || pose === 'frontB';
+  for (let y = 0; y < RH; y++) for (let x = 0; x < RW; x++) {                     // start from the low-res design, without its 2-px outline
+    const c = lo.d[y * RW + x]; if (c === 255 || c === I.o) continue;
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) P.d[(2 * y + dy) * W2 + 2 * x + dx] = c;
+  }
+  const at = (x, y) => (x < 0 || y < 0 || x >= W2 || y >= HDH) ? 255 : P.d[y * W2 + x];
+  const bundle = front ? [X - 26, F - 88] : [X + 26, F - 88];
+  const src = new Uint8Array(P.d);
+  for (let y = 0; y < HDH; y++) for (let x = 0; x < W2; x++) {
+    const c = src[y * W2 + x]; if (c === 255) continue;
+    const ly = y - F, rx = x - X, inBundle = Math.hypot(x - bundle[0], y - bundle[1]) < 9;
+    if (inBundle && (c === I.A || c === I.a)) { if ((x + y) % 4 === 0 && (x - y) % 4 === 0) P.p(x, y, 'e'); else if ((x + 2 * y) % 7 === 0) P.p(x, y, 'a'); continue; }   // furoshiki pattern
+    if ((c === I.Y || c === I.W) && ly < -64) { if ((rx + y) % 5 === 0) P.p(x, y, c === I.Y ? 'W' : 'w'); else if (ly === -66 || ly === -65) P.p(x, y, ly === -66 ? 'Y' : 'w'); continue; }   // woven straw, a lit rim
+    if (c === I.e && ly > -54 && ly < -18) { const k = rx - Math.floor((ly + 54) / 12); if (k === -7 || k === 6 || k === -12 || k === 12) P.p(x, y, 'T'); continue; }        // robe folds
+    if (c === I.f && !(x & 1) && !(y & 1)) { P.p(x, y, 'F'); continue; }                                                     // glints in the gold clouds, hem and cord
+    if ((c === I.a || c === I.A) && ly < -50) { if ((x + (y >> 1)) % 4 === 0) P.p(x, y, c === I.a ? 'A' : 'N'); else if (c === I.a && (x + y) % 9 === 0) P.p(x, y, 'B'); continue; }   // strands of hair
+    if (c === I.k && (rx === -5 || rx === 4 || rx === -7 || rx === 2)) { P.p(x, y, 'b'); continue; }                        // hakama pleats
+    if (c === I.Y && ly >= -4 && (rx === -6 || rx === 3)) { P.p(x, y, 'R'); continue; }                                       // sandal straps
+    if (c === I.c && ly > -40 && ly < -28 && (y & 1) && (x % 2 === 0)) { P.p(x, y, 'd'); continue; }                        // knuckles
+    if (c === I.r) {                                                                                                           // the red sword: a cord wrap on the hilt
+      const hilt = front ? (rx >= 10 && rx <= 24 && ly >= -50 && ly <= -36) : (rx >= -12 && rx <= -5 && ly >= -52 && ly <= -42);
+      if (hilt && (x + y) % 4 === 0) P.p(x, y, 'e'); else if (hilt && (x - y) % 4 === 0) P.p(x, y, 'R');
+    }
+  }
+  if (front) {                                                                     // the face, redrawn at full resolution
+    const n = nod ? 2 : 0, ey = F - 58;
+    for (let y = F - 54; y <= F - 49; y++) for (let x = X - 4; x <= X + 3; x++) if ([I.R, I.d, I.c].includes(at(x, y))) P.p(x, y, 'c');
+    P.r(X + 4, F - 62 + n, 2, 12, 'd'); P.r(X - 3, F - 50 + n, 6, 1, 'd'); P.r(X - 2, F - 49 + n, 4, 1, 'd');               // jaw shading
+    for (const ex of [X - 5, X + 3]) {
+      if (nod) { P.r(ex, ey + 3 + n, 2, 1, 'o'); P.p(ex - 1, ey + 2 + n, 'd'); P.p(ex + 2, ey + 2 + n, 'd'); }               // closed eyes
+      else { P.r(ex, ey, 2, 1, 'o'); P.p(ex, ey + 1, 'N'); P.p(ex + 1, ey + 1, 'e'); P.p(ex, ey + 2, 'a'); P.p(ex + 1, ey + 2, 'N'); P.r(ex, ey + 3, 2, 1, 'o'); }
+      P.r(ex - 1, ey - 2 + n, 3, 1, 'A'); P.p(ex + (ex < X ? -1 : 2), ey - 1 + n, 'A');                                     // brows
+    }
+    P.p(X, F - 54 + n, 'd'); P.p(X - 1, F - 53 + n, 'd');                                                                     // nose
+    if (smile) { P.p(X - 3, F - 52 + n, 'R'); P.r(X - 2, F - 51 + n, 4, 1, 'R'); P.p(X + 2, F - 52 + n, 'R'); }            // smile
+    else P.r(X - 1, F - 51 + n, 3, 1, 'd');
+    P.p(X - 5, F - 53 + n, 'd'); P.p(X + 4, F - 53 + n, 'd');                                                                 // cheeks
+  } else {
+    P.p(X - 8, F - 59, 'd'); P.p(X + 8, F - 59, 'd');                                                                         // inner ears
+    for (let k = -5; k <= 5; k += 2) P.p(X + k, F - 57, 'A');                                                                  // hair tips at the nape
+  }
+  return P.outline().flush();
+}
+
 function bindleProp() { const P = new Pix(22, 12); P.line(1, 10, 15, 6, 'w', 2); P.disc(16, 6, 4, 'A'); P.p(14, 5, 'e'); P.p(17, 7, 'e'); P.p(16, 3, 'e'); P.r(12, 7, 3, 2, 'a'); return P.outline().flush(); }
 
 // =================================================================== the dragon: long, serpentine, drawn every frame
@@ -293,7 +343,7 @@ setSun(SUN.el);
 const TILT = -(Math.PI / 2 - PITCH * Math.PI / 180);   // every billboard leans back to be parallel to the screen: 1 texel = 1 pixel
 const SPRITES = [];
 function billboard(pix, w, h, ax, ay, opts = {}) {      // ax, ay: the foot pixel
-  const geo = new THREE.PlaneGeometry(w / PPU, h / PPU); geo.translate((w / 2 - (ax + .5)) / PPU, (h / 2 - (h - 1 - ay)) / PPU, 0);
+  const ppu = opts.ppu || PPU, geo = new THREE.PlaneGeometry(w / ppu, h / ppu); geo.translate((w / 2 - (ax + .5)) / ppu, (h / 2 - (h - 1 - ay)) / ppu, 0);
   const mat = new THREE.MeshBasicMaterial({ map: pix.texture(), alphaTest: .5, side: THREE.DoubleSide, depthWrite: false });
   const mesh = new THREE.Mesh(geo, mat); mesh.rotation.set(TILT, 0, 0); mesh.frustumCulled = false; scene.add(mesh);
   let shadow = null;
@@ -320,6 +370,8 @@ const props = PROPS.map(([kind, x, z]) => { const p = kind === 'cedar' ? cedar()
 const RONIN = { stand: ronin('stand'), standB: ronin('standB'), ready: ronin('ready'), windup: ronin('windup'), strike: ronin('strike'), follow: ronin('follow'), walk: [0, 1, 2, 3].map(f => ronin('walk', f)),
   front: ronin('front'), frontB: ronin('frontB'), frontNod: ronin('frontNod'), frontWalk: [0, 1, 2, 3].map(f => ronin('frontWalk', f)) };
 const roninS = billboard(RONIN.stand, RW, RH, RX, RF);
+const RONIN_HD = Object.fromEntries(Object.keys(RONIN).map(k => [k, Array.isArray(RONIN[k]) ? [0, 1, 2, 3].map(f => roninHD(k, f)) : roninHD(k)]));
+const roninHDS = billboard(RONIN_HD.stand, HDW, HDH, RX * 2, RF * 2, { ppu: PPU * 2 });
 const bindle = bindleProp(), bindleS = billboard(bindle, 22, 12, 11, 11).place(RONIN0.x + .9, 0, RONIN0.z + .3);
 dragon({ t: 0, rise: 1, sink: 0, dive: 0, recoil: 0, roar: 1, flash: 0, hurt: 0, fade: 0 }); fx({}, [0, 0], -9);
 const dragonS = billboard(dragonPix, DW, DH, DX, DH - 1).place(DRAGON.x, 0, DRAGON.z);
@@ -385,7 +437,8 @@ function draw(t) {
   dragonS.show(S.dragonVisible); fxS.show(S.dragonVisible || (S.ta > T.hit && S.ta < T.hit + 1.6));
   setSun(S.sunEl); for (const s of SPRITES) s.place(s.x, s.y, s.z);
   dragonS.shadow.material.color.set(COL[S.dragonShadow]);
-  const R = S.ronin, rp = R.pose === 'walk' ? RONIN.walk[R.frame] : R.pose === 'frontWalk' ? RONIN.frontWalk[R.frame] : RONIN[R.pose]; roninS.setMap(rp); roninS.place(R.x, R.y, R.z);
+  const R = S.ronin, hd = S.zoom === 2, set = hd ? RONIN_HD : RONIN, rp = Array.isArray(set[R.pose]) ? set[R.pose][R.frame] : set[R.pose];
+  roninS.show(!hd); roninHDS.show(hd); for (const r of [roninS, roninHDS]) r.place(R.x, R.y, R.z); (hd ? roninHDS : roninS).setMap(rp);
   bindleS.show(S.bindle);
   // y-sort: farther first (smaller z), no depth writes between sprites
   [...SPRITES].sort((a, b) => a.z - b.z || a.depth - b.depth).forEach((s, i) => { s.mesh.renderOrder = 10 + i; });

@@ -199,7 +199,20 @@ El pico queda en unos −4 dB.
 4. **Plano de reacción:** el rōnin de frente al recoger el hatillo.
 5. **Audio:** efectos de sonido, mezclados por `capture.cjs`.
 
+**Sprite HD del rōnin para los primeros planos**
+
+En los planos ×2 la cámara da 32 px de pantalla por unidad de mundo, así que se usa un rōnin de 68×104 texels
+(el doble de densidad, mismo tamaño en el mundo) que cae a exactamente 1 texel = 1 píxel. Sale de ampliar el
+diseño normal y añadirle detalle fino:
+- **Kasa:** trenzado de paja.
+- **Cara:** ojos con iris azul y brillo, cejas, nariz, sonrisa y mejillas; ojos cerrados al asentir.
+- **Pelo:** mechones, y puntas en la nuca.
+- **Ropa:** pliegues en la túnica, destellos en el oro, pliegues del hakama y correas de las sandalias.
+- **Espada y hatillo:** trenzado blanco en la empuñadura y estampado en el hatillo.
+- **Contorno:** de 1 píxel en vez de 2.
+
+En los planos generales se usa el sprite normal de 34×52. El precio es mezclar densidades en los primeros
+planos: el rōnin tiene píxeles más finos que el escenario, que allí se ve en bloques de 2×2.
+
 **Siguientes pasos posibles**
-- El rōnin en plano general sigue midiendo unos 22 px. Si hace falta más detalle, el siguiente paso sería un
-  sprite al doble de densidad solo para los planos ×2.
 - No hay una vista de perfil: el giro de frente a espaldas es un corte, no una animación de vuelta.
