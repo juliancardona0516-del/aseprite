@@ -237,3 +237,19 @@ Exportar: `node capture.cjs --page aurora.html --out out/aurora.mp4`
 
 La rotación correcta para que un billboard quede paralelo a la pantalla es `rotation.x = −pitch` (orden `'YXZ'`).
 La fórmula anterior `−(90° − pitch)` solo coincidía cerca de 45°; se corrigió en `index.html` y `wakayama.html`.
+
+## Escena «El trono» (`throne.html`)
+
+El villano del boceto (demonio rojo de pelo negro, cuernos, ojos azules brillantes, cicatrices en X, guanteletes de pelaje
+negro con garras, armadura con púas y hacha) en su castillo negro. 24 s, 1080×1920, solo efectos de sonido.
+
+1. 0–6 s: la montaña sombría con el castillo recortado contra una luna roja; tormenta y relámpagos; zoom continuo hasta la
+   ventana del salón del trono; un relámpago blanco corta hacia dentro.
+2. 6–16.5 s: el salón (pared con vitral, estandartes, columnas en primer y segundo plano, braseros, alfombra). Primer plano ×2
+   con el sprite HD: el demonio levanta el hacha y ruge (sacudida de cámara, relámpago); los orcos azules alzan las armas y
+   salen corriendo.
+3. 16.5–24 s: de vuelta afuera, una fila de antorchas baja por el sendero de la montaña hasta la aldea, que arde casa por
+   casa con humo; fundido tramado a negro.
+
+Dos mundos three.js (exterior / salón) con la misma cámara ortográfica; el cielo se dibuja una vez por cuadro y lo
+comparten la vista exterior y el vitral. Exportar: `node capture.cjs --page throne.html --out out/throne.mp4`
