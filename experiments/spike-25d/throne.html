@@ -363,6 +363,8 @@ gl.setPixelRatio(1); gl.setSize(IW, IH, false);
 const out = document.getElementById('out'), octx = out.getContext('2d');
 const camera = new THREE.OrthographicCamera(-IW / PPU / 2, IW / PPU / 2, IH / PPU / 2, -IH / PPU / 2, .1, 600);
 const rt = new THREE.WebGLRenderTarget(IW, IH, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, generateMipmaps: false });
+// the throne room's general shot is framed closer without breaking the pixel grid: 135x240 internal, scaled x8 (1080/135 = 1920/240 = 8)
+const NW = 135, NH = 240, rtN = new THREE.WebGLRenderTarget(NW, NH, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, generateMipmaps: false });
 const PALN = KEYS.length, v3 = hex => { const n = parseInt(hex.slice(1), 16); return new THREE.Vector3((n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); };
 const post = new THREE.ShaderMaterial({
   uniforms: { tA: { value: rt.texture }, dim: { value: 0 }, flash: { value: 0 }, night: { value: v3(COL.o) }, flashC: { value: v3('#d8dcff') }, pal: { value: KEYS.map(k => v3(COL[k])) } },
@@ -496,19 +498,20 @@ function draw(t) {
       else if (t < T.run[0]) { o.flip = 1; o.setMap(ORC['cheer' + cyc(t * 5 + i * 1.7, 2) + w]); o.place(x0, 0, z0); }
       else { o.flip = side; o.setMap(ORC['run' + cyc(t * 9 + i, 2) + w]); o.place(x0 + side * rs * 12, 0, z0 + rs * 1.5); }
     });
-    target = S.close ? new THREE.Vector3(0, 3.4, -5.2) : new THREE.Vector3(0, 4.4, -3.2);
+    target = S.close ? new THREE.Vector3(0, 3.4, -5.2) : new THREE.Vector3(0, 3.9, -3.6);
   }
   orderWorld(W, dir);
-  if (camera.zoom !== S.zoom) { camera.zoom = S.zoom; camera.updateProjectionMatrix(); }
+  const near = S.world === 'in' && !S.close, vw = near ? NW : IW, vh = near ? NH : IH, R = near ? rtN : rt;
+  if (camera.zoom !== S.zoom || camera.right !== vw / PPU / 2) { camera.zoom = S.zoom; camera.left = -vw / PPU / 2; camera.right = vw / PPU / 2; camera.top = vh / PPU / 2; camera.bottom = -vh / PPU / 2; camera.updateProjectionMatrix(); }
   camera.position.copy(target).addScaledVector(dir, 150); camera.lookAt(target); camera.updateMatrixWorld();
   right.setFromMatrixColumn(camera.matrixWorld, 0); up.setFromMatrixColumn(camera.matrixWorld, 1); fwd.setFromMatrixColumn(camera.matrixWorld, 2);
   const px = 1 / PPU / S.zoom, sh = S.shake ? Math.round((hash(Math.floor(t * 30), 1, 141) - .5) * 4 * S.shake) : 0, sv = S.shake ? Math.round((hash(Math.floor(t * 30), 2, 141) - .5) * 4 * S.shake) : 0;
   const cr = camera.position.dot(right), cu = camera.position.dot(up), cf = camera.position.dot(fwd);
   camera.position.copy(right.clone().multiplyScalar((Math.round(cr / px) + sh) * px)).add(up.clone().multiplyScalar((Math.round(cu / px) + sv) * px)).add(fwd.clone().multiplyScalar(cf));
   camera.updateMatrixWorld();
-  gl.setRenderTarget(rt); gl.render(W.scene, camera);
+  gl.setRenderTarget(R); gl.render(W.scene, camera); post.uniforms.tA.value = R.texture;
   post.uniforms.dim.value = S.dim; post.uniforms.flash.value = S.flash; gl.setRenderTarget(null); gl.render(postScene, postCam);
-  octx.imageSmoothingEnabled = false; octx.drawImage(gl.domElement, 0, 0, IW, IH, 0, 0, OUT_W, OUT_H);
+  octx.imageSmoothingEnabled = false; if (near) { gl.setViewport(0, 0, NW, NH); gl.render(postScene, postCam); gl.setViewport(0, 0, IW, IH); octx.drawImage(gl.domElement, 0, IH - NH, NW, NH, 0, 0, OUT_W, OUT_H); } else octx.drawImage(gl.domElement, 0, 0, IW, IH, 0, 0, OUT_W, OUT_H);
   return S;
 }
 

@@ -252,4 +252,5 @@ negro con garras, armadura con púas y hacha) en su castillo negro. 24 s, 1080×
    casa con humo; fundido tramado a negro.
 
 Dos mundos three.js (exterior / salón) con la misma cámara ortográfica; el cielo se dibuja una vez por cuadro y lo
-comparten la vista exterior y el vitral. Exportar: `node capture.cjs --page throne.html --out out/throne.mp4`
+comparten la vista exterior y el vitral. El plano general del salón se encuadra más cerca sin romper la rejilla: se renderiza a
+135×240 y se escala ×8 (en vez de 180×320 ×6), así 1 texel sigue siendo 1 píxel. Exportar: `node capture.cjs --page throne.html --out out/throne.mp4`
