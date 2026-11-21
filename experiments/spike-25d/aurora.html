@@ -257,6 +257,9 @@ drawCandle(0); const candleS = billboard(candlePix, 10, 22, 5, 21);
 // things that sit on the wall move with it: their place is a point of the wall's own plane, a little in front of it
 const onWall = (px, py, lift = .06) => { wallS.mesh.updateMatrixWorld(); return wallS.mesh.localToWorld(new THREE.Vector3((px - wl.w / 2) / PPU, (wl.h - 1 - py) / PPU, lift)); };
 
+// read-only hook for experiments/characters/export.cjs: the character sprites, outside any scene
+window.__cast = () => ({ archer: ARCH, archerHD: ARCH_HD });
+
 // =================================================================== the story at time t
 function story(t) {
   const S = { t };

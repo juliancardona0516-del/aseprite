@@ -377,6 +377,9 @@ dragon({ t: 0, rise: 1, sink: 0, dive: 0, recoil: 0, roar: 1, flash: 0, hurt: 0,
 const dragonS = billboard(dragonPix, DW, DH, DX, DH - 1).place(DRAGON.x, 0, DRAGON.z);
 const fxS = billboard(fxPix, DW, DH, DX, DH - 1, { shadow: false }).place(DRAGON.x, 0, DRAGON.z + .05);
 
+// read-only hook for experiments/characters/export.cjs: the character sprites, outside any scene
+window.__cast = () => ({ ronin: RONIN, roninHD: RONIN_HD, dragon: (dragon({ t: 0, rise: 1, sink: 0, dive: 0, recoil: 0, roar: 1, flash: 0, hurt: 0, fade: 0 }), dragonPix.flush()) });
+
 // =================================================================== the story at time t
 const pathPoint = d => { let left = d; for (let k = 0; k < PATH.length - 1; k++) { const [ax, az] = PATH[k], [bx, bz] = PATH[k + 1], L = Math.hypot(bx - ax, bz - az); if (left <= L) return [lerp(ax, bx, left / L), lerp(az, bz, left / L)]; left -= L; } return PATH[PATH.length - 1]; };
 const pathLen = (x, z) => { let best = 1e9, acc = 0, at = 0; for (let k = 0; k < PATH.length - 1; k++) { const [ax, az] = PATH[k], [bx, bz] = PATH[k + 1], vx = bx - ax, vz = bz - az, L = Math.hypot(vx, vz), q = clamp(((x - ax) * vx + (z - az) * vz) / (L * L)), d = Math.hypot(x - ax - vx * q, z - az - vz * q); if (d < best) { best = d; at = acc + q * L; } acc += L; } return at; };

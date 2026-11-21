@@ -433,6 +433,9 @@ const wallFires = WL.torches.map(() => { const p = new Pix(12, 18); p.texture();
 const ORC = {}; for (const w of [0, 1, 2]) { ORC['stand' + w] = orc('stand', w); ORC['cheer0' + w] = orc('cheer', w, 0); ORC['cheer1' + w] = orc('cheer', w, 1); ORC['run0' + w] = orc('run', w, 0); ORC['run1' + w] = orc('run', w, 1); }
 const orcs = ORCS_IN.map(([x, z, w]) => INW.bb(ORC['stand' + w], OW, OH, OXc, OF, { shadow: true }).place(x, 0, z));
 
+// read-only hook for experiments/characters/export.cjs: the character sprites, outside any scene
+window.__cast = () => ({ demon: DEM, demonHD: DEM_HD, orc: ORC });
+
 // =================================================================== the story at time t
 function story(t) {
   const S = { t, world: t < T.cutIn || t >= T.cutOut[1] ? 'ex' : 'in' };
