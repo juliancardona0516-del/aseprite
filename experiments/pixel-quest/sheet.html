@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#3a6a4a}canvas{display:block}</style></head><body>
+<canvas id="c"></canvas>
+<script src="pixel.js"></script>
+<script src="chip.js"></script>
+<script src="journey.js"></script>
+<script>
+// character sheet: every traveler, walk frames + stand (+ cheer), x8
+const cv = document.getElementById('c'); cv.width = 1920; cv.height = 1080; const ctx = cv.getContext('2d');
+buildSky(); buildParty();
+const sh = Pixel.screen({ w: 240, h: 135, palette: PALETTE });
+window.__meta = { W: 1920, H: 1080, FPS: 30, DURATION: 1 };
+window.__draw = t => {
+  sh.cls(17); const px = sh.px;
+  const put = (L, sx, sy) => { for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) { const v = L.d[y * L.w + x]; if (v !== 255 && sx + x >= 0 && sx + x < 240 && sy + y >= 0 && sy + y < 135) px[(sy + y) * 240 + sx + x] = v; } };
+  Object.keys(SPR).forEach((k, r) => { const S = SPR[k], row = r < 3 ? 6 : 72, col = r < 3 ? r * 80 : (r - 3) * 120;
+    put(S.walk[0], col - 6, row); put(S.walk[1], col + 20, row); if (r >= 3) { put(S.walk[3], col + 46, row); put(S.stand, col + 72, row); } else put(S.stand, col + 46, row); });
+  put(SPR.hero.cheer, 196, 72);
+  sh.flip(ctx);
+};
+window.__ready = true; window.__draw(0);
+</script></body></html>

@@ -44,7 +44,8 @@ Contexto del proyecto, personajes y preferencias: `CONTEXTO.md`. Esta skill es e
 5. **Profundidad 2.5D** (si se pide o ayuda): billboards con `rotation.set(-pitch, yaw, 0, 'YXZ')`, cámara ortográfica
    16 px/unidad ajustada a la rejilla, órbita lenta de cámara para parallax, sombras planas por cizalla, suelo de
    baja frecuencia, zoom solo en pasos enteros (×2 con sprite HD; 135×240 ×8 para un plano algo más cercano).
-   Partir de `experiments/spike-25d/throne.html` o `aurora.html`: ya traen todo el andamiaje.
+   Partir de `experiments/spike-25d/throne.html` o `aurora.html`: ya traen todo el andamiaje. Para escenas 2D
+   con el grupo, partir de `experiments/pixel-quest/` (los sprites de los cinco están en `journey.js`).
 6. **Efectos de sonido** en `sfx(ac, out)` con OfflineAudioContext: ruido filtrado (viento, fuego, pasos, truenos),
    osciladores (campanas, destellos, golpes graves), sierra distorsionada (rugidos). Sincronizar con `T`.
 7. **Revisión:** capturas fijas en momentos clave, luego exportar

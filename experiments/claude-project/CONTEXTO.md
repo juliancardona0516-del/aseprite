@@ -47,8 +47,11 @@ Los cinco aventureros juntos son "el grupo" (escena de la fogata y la tortuga, e
 | 12 | La ventana (auroras) | El arquero rubio sentado en una ventana: montaña nevada, auroras boreales, estrella fugaz | «Vivir es un instante, la obra maestra permanece, admírala mientras puedas» |
 | 13 | El trono | Castillo negro bajo luna roja, zoom a la ventana del trono; el demonio ruge y ordena a los orcos azules destruir la aldea; la aldea arde | Solo SFX |
 
-Las escenas 10–13 están en el repo (`experiments/spike-25d/`). Las escenas 3–9 se hicieron en el espacio temporal
-de la sesión (`journey/*.html` + `*.js`) y **no están en el repo**; si se quieren conservar hay que copiarlas.
+Dónde está cada una en el repo:
+- Escenas 2–9 (Canvas 2D): `experiments/pixel-quest/` (`journey`, `twist`, `dance`, `fish`, `moon`, `tavern`, `refl`,
+  `turtle`). Comparten `journey.js` (personajes y escenarios) y el runtime de motion-kit (`pixel.js`, `chip.js`).
+- Escenas 10–13 (2.5D, three.js): `experiments/spike-25d/` (`index`, `wakayama`, `aurora`, `throne`).
+- La escena 1 (relojes) no se conservó.
 
 ## 4. Preferencias del autor (respetar siempre)
 

@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>The Journey</title>
+<style>html,body{margin:0;background:#0b1430;overflow:hidden}canvas{display:block;margin:auto;height:100vh;width:auto}</style>
+</head><body>
+<canvas id="c"></canvas>
+<script src="pixel.js"></script>
+<script src="chip.js"></script>
+<script src="journey.js"></script>
+<script>
+const cv = document.getElementById('c'); cv.width = W; cv.height = H;
+const ctx = cv.getContext('2d');
+buildAll();
+window.__meta = { W, H, FPS, DURATION };
+window.__draw = t => draw(t, ctx);
+window.__ready = true;
+draw(0, ctx);
+if (!new URLSearchParams(location.search).has('render')) {
+  let ac = null, t0 = 0;
+  addEventListener('click', () => { if (ac) return; ac = new AudioContext(); t0 = ac.currentTime + .1; const m = master(ac); Chip.play(ac, t0, m, TRACKS, { prefix: PREFIX }); requestAnimationFrame(loop); });
+  function loop() { const t = ac.currentTime - t0; draw(clamp(t, 0, DURATION - 1e-3), ctx); if (t < DURATION) requestAnimationFrame(loop); }
+}
+</script></body></html>
