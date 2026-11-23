@@ -5,7 +5,7 @@
 // pendant on his chest, thinks he took her, and they cross swords. "CONTINUARÁ...".
 // Sound effects only. Loads journey.js (party, palette, screen) and pendant.js (rōnin, text with accents, gem).
 // =====================================================================
-const KG_DUR = 29;
+const KG_DUR = 31;
 // ---------------------------------------------------------------- PLAN AS DATA
 const KG = {
   vista: [0, 3.5],                                                   // the castle on its mountain, the town burning at its foot
@@ -16,16 +16,19 @@ const KG = {
     { x: 204, w: 0, by: 'hero', at: 7.6 }, { x: 222, w: 1, flee: 8.1 },
   ],
   cheer: [8.6, 11.0], princess: { x: 244 },
-  chief: { peek: 11.3, grab: 12.4, rip: 12.9, carry: 13.5, gone: 14.8 },
-  ronin: { run: [15.0, 16.2], from: 300, x: 232, dots: 16.5, glint: 17.0 },
-  heroSees: 17.4, approach: [17.6, 18.4], thought: [18.4, 20.2],
-  say: [{ who: 'hero', s: '¡DEVU^ELVELA!', at: 20.3, to: 21.7 }, { who: 'ronin', s: '¡NO FUI YO!', at: 21.8, to: 23.0 }],
-  dash: 23.0, clashes: [23.3, 24.1, 24.8], freeze: 25.3, text: 25.7, end: 29,
+  chief: { peek: 11.3, grab: 12.4, rip: 12.9, carry: 13.5, gone: 16.8, laugh: 16.2 },
+  resist: { arrow: 14.25, orb: 14.75, hero: [14.9, 15.15], knight: [15.5, 15.75], volley: 16.4 },   // they all attack; his force field throws everything back
+  ronin: { run: [17.0, 18.2], from: 300, x: 232, dots: 18.5, glint: 19.0 },
+  heroSees: 19.4, approach: [19.6, 20.4], thought: [20.4, 22.2],
+  say: [{ who: 'hero', s: '¡DEVU^ELVELA!', at: 22.3, to: 23.7 }, { who: 'ronin', s: '¡NO FUI YO!', at: 23.8, to: 25.0 }],
+  dash: 25.0, clashes: [25.3, 26.1, 26.8], freeze: 27.3, text: 27.7, end: 31,
   views: [
     { from: 0, k: 1 },
     { from: 11.2, k: 2, x: 135, y: 230 },                            // the gate, close: the chief takes her
-    { from: 14.8, k: 1 },
-    { from: 18.4, k: 2, x: 135, y: 230 },                            // the hero and the rōnin, close
+    { from: 13.6, k: 1 },                                           // wide again: the whole party fights back
+    { from: 14.6, k: 2, x: 135, y: 230 },                            // close on the field: the hero and the knight bounce off it
+    { from: 16.0, k: 1 },
+    { from: 20.4, k: 2, x: 135, y: 230 },                            // the hero and the rōnin, close
   ],
 };
 const STF = FEET;                                                     // the street
@@ -184,11 +187,30 @@ function orcAt(i, t) {                                               // position
   if (o.at && t >= o.at) { const lt = t - o.at; return { x: o.x + lt * 110, y: STF - 150 * lt + 320 * lt * lt, ang: lt * 11, hit: lt < .14 }; }
   return { x: o.x, y: STF, flip: true };
 }
+let CHF = null;                                                      // where the chief (and his force field) is this frame
+const RS = KG.resist, HITS = [RS.arrow, RS.orb, RS.hero[1], RS.knight[1], RS.volley];
+function shield(cx, cy, t) {                                         // a purple dome of orc magic: hex lattice, a bright rim, ripples where it is struck
+  cx = Math.round(cx); cy = Math.round(cy);
+  const px = scr.px, rx = 28, ry = 34, flash = HITS.some(h => t >= h && t < h + .2), on = seg(t, KG.chief.carry, KG.chief.carry + .4), pulse = .5 + .5 * Math.sin(t * 7);
+  for (let y = -ry; y <= ry; y++) for (let x = -rx; x <= rx; x++) {
+    const d = (x / rx) ** 2 + (y / ry) ** 2; if (d > 1) continue; const X = cx + x, Y = cy + y; if (X < 0 || X >= PW || Y < 0 || Y >= PH) continue;
+    if (d > .74) { if (B8(X, Y) < on * (flash ? 1 : .85)) px[Y * PW + X] = flash ? 42 : d > .9 ? 38 : (d > .82 ? 33 : 34); }
+    else if (((X + ((Y / 6) | 0) * 3) % 6 === 0 || Y % 6 === 0) && B8(X, Y) < on * (flash ? .9 : .45 + pulse * .2)) px[Y * PW + X] = flash ? 38 : 33;
+    else if (B8(X, Y) < on * .1) px[Y * PW + X] = 33;
+  }
+  for (const h of HITS) { const lt = t - h; if (lt >= 0 && lt < .5) { scr.dither(1 - lt * 2); scr.ellib(cx - rx + 4 - lt * 20, cy - ry + 4 - lt * 20, (rx - 4 + lt * 20) * 2, (ry - 4 + lt * 20) * 2, 42); scr.dither(); } }
+}
+function strike(t, [a, hit], x0, to, back) {                         // a run at the field, the bounce off it, the walk back; returns null when not striking
+  if (t < a || t > hit + 1.3) return null;
+  if (t < hit) return { x: lerp(x0, to, inOutSine(seg(t, a, hit))), hop: 0 };
+  if (t < hit + .45) { const q = seg(t, hit, hit + .45); return { x: lerp(to, back, q), hop: Math.sin(q * Math.PI) * 16, ang: q }; }
+  return { x: lerp(back, x0, inOutSine(seg(t, hit + .45, hit + 1.3))), hop: 0 };
+}
 function partyAt(k, x0, t) {                                         // where each adventurer stands; the hero and the knight dash in to strike
   const arrive = seg(t, ...KG.arrive), x = lerp(x0 - 150, x0, arrive);
   const dash = (a, b, to) => { const p = Math.min(seg(t, a, a + .25), 1 - seg(t, b, b + .3)); return lerp(x, to, inOutSine(p)); };
-  if (k === 'knight') return dash(6.6, 7.0, 134);
-  if (k === 'hero') { if (t >= KG.dash) return 168 + 34 * inOutSine(seg(t, KG.dash, KG.dash + .3)) - 6 * Math.abs(Math.sin((t - KG.dash) * 4.2)); if (t >= KG.approach[0]) return lerp(x0, 168, inOutSine(seg(t, ...KG.approach))); return dash(7.3, 7.7, 190); }
+  if (k === 'knight') { const s = strike(t, RS.knight, x0, 216, x0 + 34); if (s) return s.x; return dash(6.6, 7.0, 134); }
+  if (k === 'hero') { const s = strike(t, RS.hero, x0, 212, x0 + 26); if (s) return s.x; if (t >= KG.dash) return 168 + 34 * inOutSine(seg(t, KG.dash, KG.dash + .3)) - 6 * Math.abs(Math.sin((t - KG.dash) * 4.2)); if (t >= KG.approach[0]) return lerp(x0, 168, inOutSine(seg(t, ...KG.approach))); return dash(7.3, 7.7, 190); }
   return x;
 }
 
@@ -214,11 +236,13 @@ function sceneStreet(t) {
     let cx, pose, pr = null;
     if (t < C.grab) { cx = lerp(300, P.x + 17, inOutSine(seg(t, C.peek, C.grab))); pose = KGS.chief.run[cyc(t * 7, 4)]; }
     else if (t < C.carry) { cx = P.x + 17; pose = KGS.chief.idle[t < C.rip ? 1 : 0]; pr = t < C.rip ? 'fear' : 'fearN'; }
-    else { cx = P.x + 10 - (t - C.carry) * 12; pose = KGS.chief.carry[cyc(t * 8, 4)]; }
+    else { cx = P.x + 10 - (t - C.carry) * 6; pose = KGS.chief.carry[cyc(t * 8, 4)]; }
     const up = t >= C.carry ? Math.round(seg(t, C.carry, C.gone) * 34) : 0, save = t >= C.carry ? Uint8Array.from(scr.px) : null;   // up the steps and into the dark gate
     if (pr) blit(KGS.pr[pr], P.x - QX - 4, STF - 8 - QF);
     blit(pose, cx - (CW - 1 - CX), STF - 6 - CF - up, true);
     if (t >= C.carry) blitRotS(KGS.pr.fearN, cx + 1, STF - 50 - up, -1.45);
+    CHF = t >= C.carry ? { x: cx, y: STF - 34 - up } : null; if (CHF) shield(CHF.x, CHF.y, t);
+    if (t >= C.laugh && t < C.gone - .2) bang(Math.min(cx, PW - 46), STF - 86 - up, 33, '¡JA JA JA!');
     if (save) { const a = 1 - seg(t, C.gone - .7, C.gone), px = scr.px; for (let y = STF - 110; y < STF; y++) for (let x = cx - 36; x < cx + 36; x++) { const i = y * PW + x; if (x >= 0 && x < PW && B8(x >> 1, y >> 1) > a) px[i] = save[i]; } }
     if (t >= C.grab && t < C.rip + .1) bang(P.x - 2, STF - 64, 31);
     if (t >= C.rip && t < C.carry + .6) { const gx = cx + (t < C.carry ? -18 : -7), gy = t < C.carry ? STF - 36 - seg(t, C.rip, C.rip + .3) * 6 : STF - 50 - up; glow(gx, gy, 5, .8); gemSmall(gx, gy); if (cyc(t * 6, 2)) scr.pset(gx - 4, gy - 3, 42).pset(gx + 4, gy + 3, 42); }
@@ -236,8 +260,21 @@ function sceneStreet(t) {
     if (t >= KG.cheer[0] && t < KG.cheer[1]) { y -= cyc(t * 3 + i * .5, 2); if (k === 'hero') spr = S.cheer; }
     if (k === 'hero' && t >= KG.dash) spr = S.cheer;
     if (k === 'hero' && t >= KG.approach[0] && t < KG.approach[1]) spr = S.walk[cyc(t * 8, 4)];
+    const st = k === 'hero' ? strike(t, RS.hero, x0, 212, x0 + 26) : k === 'knight' ? strike(t, RS.knight, x0, 216, x0 + 34) : null;
+    if (st) { y -= Math.round(st.hop); if (k === 'hero' && !st.ang) spr = S.cheer; }
     shadow(x, STF, 8); blit(spr, x - SX, y - SFY);
   });
+  // the counter-attack on the chief: arrows and magic, each one thrown back by the field
+  if (CHF) {
+    const ex = CHF.x - 28, ey = CHF.y;
+    const arrow = (t0, dy) => { const p = seg(t, t0 - .35, t0); if (p > 0 && p < 1) { const x = lerp(pos.archer + 8, ex, p), y = STF - 26 + (ey - STF + 26) * p + dy; scr.line(x - 6, y, x, y, 23).pset(x + 1, y, 13).pset(x - 7, y - 1, 31); }
+      const lt = t - t0; if (lt >= 0 && lt < .6) { const x = ex - lt * 40, y = ey + dy - 30 * lt + 120 * lt * lt; scr.line(x, y, x + 5, y + 3, 23).pset(x - 1, y - 1, 13); } };
+    arrow(RS.arrow, 0); arrow(RS.volley, -6); arrow(RS.volley + .08, 6);
+    const orb = t0 => { const p = seg(t, t0 - .4, t0); if (p > 0 && p < 1) { const x = lerp(pos.mage + 10, ex, p), y = lerp(STF - 44, ey, p) - Math.sin(p * Math.PI) * 20; scr.dither(.5).circ(x, y, 6, 38).dither(); scr.circ(x, y, 3, 5).pset(x, y, 42); }
+      const lt = t - t0; if (lt >= 0 && lt < .5) { for (let k = 0; k < 10; k++) { const a = Math.PI / 2 + (k - 4.5) * .3, rr = 4 + lt * 40; scr.pset(ex + Math.cos(a + Math.PI / 2) * rr * .6 - lt * 20, ey + Math.sin(a + Math.PI / 2) * rr, k % 2 ? 38 : 42); } } };
+    orb(RS.orb); orb(RS.volley + .15);
+    for (const h of [RS.hero[1], RS.knight[1]]) spark(ex - 2, ey + 6, h, t);
+  }
   // their blows
   { const a = KG.orcs[2], p = seg(t, a.at - .35, a.at); if (p > 0 && p < 1) { const x = lerp(pos.archer + 8, a.x, p), y = STF - 26; scr.line(x - 6, y, x, y, 23).pset(x + 1, y, 13).pset(x - 7, y - 1, 31).pset(x - 7, y + 1, 31); } spark(a.x, STF - 16, a.at, t); }
   { const a = KG.orcs[1], p = seg(t, a.at - .35, a.at); if (p > 0 && p < 1) { const x = lerp(pos.mage + 10, a.x, p), y = STF - 44 + p * 24; scr.dither(.5).circ(x, y, 6, 38).dither(); scr.circ(x, y, 3, 5).pset(x, y, 42); } const lt = t - a.at; if (lt > 0 && lt < .5) { scr.dither(1 - lt * 2); scr.circb(a.x, STF - 16, 4 + lt * 30, 38); scr.dither(); } }
@@ -327,7 +364,12 @@ function kgAudio(ac, out, t0 = 0) {
   for (let t = KG.chief.peek; t < KG.chief.grab; t += .18) noise(t, .03, 500, 250, .025, 'lowpass');
   tone(KG.chief.grab, .5, 900, 1700, .06, 'sine'); tone(KG.chief.grab + .1, .4, 1300, 2000, .04, 'sine');                         // her cry
   [2637, 3520, 1760].forEach((f, i) => tone(KG.chief.rip + i * .06, .35, f, f * .7, .05, 'triangle'));                              // the pendant torn off
-  for (let k = 0; k < 3; k++) tone(KG.chief.carry + k * .2, .16, 110, 80, .07, 'sawtooth');                                         // the chief laughs
+  for (let k = 0; k < 4; k++) tone(KG.chief.laugh + k * .2, .16, 110, 80, .07, 'sawtooth');                                          // the chief laughs
+  { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'triangle'; o.frequency.value = 220; g.gain.setValueAtTime(.0001, at(KG.chief.carry)); g.gain.linearRampToValueAtTime(.025, at(KG.chief.carry + .3)); g.gain.setValueAtTime(.025, at(KG.chief.gone - .5)); g.gain.linearRampToValueAtTime(.0001, at(KG.chief.gone)); o.connect(g).connect(out); o.start(at(KG.chief.carry)); o.stop(at(KG.chief.gone)); }   // the field's hum
+  HITS.forEach(h => { tone(h, .35, 1800, 500, .06, 'triangle'); noise(h, .25, 4000, 1200, .07, 'bandpass', 2); });                      // each blow bounces off
+  noise(RS.arrow - .35, .35, 5000, 1500, .05); noise(RS.volley - .35, .35, 5000, 1500, .05);
+  Chip.sfx.laser(ac, at(RS.orb - .4), out, { gain: .14, pitch: .6 }); Chip.sfx.laser(ac, at(RS.volley - .25), out, { gain: .12, pitch: .7 });
+  for (const [a, h] of [RS.hero, RS.knight]) { for (let t = a; t < h; t += .08) noise(t, .04, 600, 250, .04, 'lowpass'); Chip.sfx.hit(ac, at(h), out, { gain: .2, pitch: .6 }); Chip.sfx.fall(ac, at(h + .05), out, { gain: .08 }); }
   for (let t = KG.chief.carry; t < KG.chief.gone; t += .13) noise(t, .04, 600, 250, .035, 'lowpass');
   tone(KG.chief.grab + .1, .15, 1200, 1200, .05, 'square'); tone(KG.chief.grab + .25, .15, 1600, 1600, .05, 'square');             // "!"
   for (let t = KG.ronin.run[0]; t < KG.ronin.run[1]; t += .1) noise(t, .04, 700, 300, .04, 'lowpass');
