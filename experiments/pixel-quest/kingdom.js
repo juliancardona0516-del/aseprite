@@ -75,6 +75,22 @@ function blitRotS(L, cx, cy, ang, flip = false) {                   // a sprite 
   const px = scr.px, ca = Math.cos(-ang), sa = Math.sin(-ang), rad = Math.ceil(Math.hypot(L.w, L.h) / 2) + 1; cx = Math.round(cx); cy = Math.round(cy);
   for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) { const X = cx + dx, Y = cy + dy; if (X < 0 || Y < 0 || X >= PW || Y >= PH) continue; let u = Math.floor(dx * ca - dy * sa + L.w / 2), v = Math.floor(dx * sa + dy * ca + L.h / 2); if (flip) u = L.w - 1 - u; if (u < 0 || v < 0 || u >= L.w || v >= L.h) continue; const c = L.d[v * L.w + u]; if (c !== 255) px[Y * PW + X] = c; }
 }
+// ---- the orc chief: much bigger and heavier than his warriors; red head band, spiked shoulder plate, bare hands (to grab)
+const CW = 36, CH = 44, CX = 16, CF = 43;
+function chiefS(pose, frame = 0) {                                  // 'idle' (arm reaching, frames 0-1) | 'run' (frames 0-3) | 'carry' (both arms up to the shoulder)
+  const P = new PixO(CW, CH), X = CX, F = CF, run = pose !== 'idle', ph = run ? [0, 1, 0, -1][frame] : 0, bob = run && frame % 2 ? -1 : 0, G = F + bob;
+  P.line(X - 4, G - 13, X - 4 - ph * 4, F - 1, 'a', 4); P.line(X + 3, G - 13, X + 3 + ph * 4, F - 1, 'A', 4); P.r(X - 7 - ph * 4, F, 6, 1, 'w'); P.r(X + 2 + ph * 4, F, 6, 1, 'w');
+  P.r(X - 8, G - 17, 17, 6, 'w'); P.r(X - 8, G - 17, 17, 1, 'k'); for (let x = X - 6; x < X + 8; x += 4) P.p(x, G - 17, 'n');
+  P.r(X - 10, G - 31, 20, 15, 'c'); P.r(X - 10, G - 31, 6, 15, 'A'); P.r(X - 12, G - 29, 3, 10, 'A'); P.r(X + 2, G - 25, 7, 7, 'C'); P.line(X - 8, G - 31, X + 6, G - 18, 'w', 2);
+  P.r(X - 13, G - 33, 9, 5, 'n'); P.r(X - 13, G - 33, 9, 1, 'N'); for (let k = 0; k < 3; k++) { P.p(X - 12 + k * 3, G - 34, 'N'); P.p(X - 12 + k * 3, G - 35, 'n'); }
+  P.r(X + 1, G - 41, 12, 11, 'c'); P.r(X + 9, G - 34, 5, 4, 'c'); P.r(X + 1, G - 41, 3, 11, 'A'); P.line(X + 1, G - 38, X - 3, G - 42, 'c', 2);
+  P.r(X + 5, G - 38, 8, 1, 'A'); P.r(X + 9, G - 37, 2, 1, 'h'); P.r(X + 6, G - 32, 7, 1, 'a'); P.r(X + 12, G - 33, 1, 3, 'z'); P.r(X + 9, G - 33, 1, 2, 'z');
+  P.r(X + 1, G - 40, 12, 2, 'r'); P.line(X, G - 39, X - 6, G - 35, 'r', 2); P.p(X - 7, G - 34, 'R'); P.r(X + 4, G - 43, 4, 2, 'k');
+  if (pose === 'carry') { P.line(X + 4, G - 28, X + 9, G - 38, 'c', 4); P.line(X - 6, G - 28, X - 3, G - 38, 'A', 3); }
+  else if (pose === 'run') { P.line(X + 4, G - 27, X + 9 - ph * 3, G - 19, 'c', 4); P.r(X + 8 - ph * 3, G - 20, 4, 4, 'c'); }
+  else { const r0 = frame ? 0 : 3; P.line(X + 4, G - 27, X + 15, G - 23 - r0, 'c', 4); P.r(X + 14, G - 25 - r0, 4, 4, 'c'); P.p(X + 18, G - 24 - r0, 'c'); P.p(X + 18, G - 22 - r0, 'c'); }
+  return P.done();
+}
 const whiteOf = L => ({ w: L.w, h: L.h, d: L.d.map(v => v === 255 ? 255 : v === 30 ? 30 : 6) });
 // ---- the princess: pink kimono with white flowers, red obi, black hime-cut hair, a small gold tiara, the glowing blue pendant
 const QW = 28, QH = 42, QX = 14, QF = 41;
@@ -149,7 +165,7 @@ function buildKingdom() {
   KGL.street = L;
   KGS.orc = [0, 1, 2, 3].map(w => ({ idle: [orcS('idle', w, 0), orcS('idle', w, 1)], run: [0, 1, 2, 3].map(f => orcS('run', w, f)) }));
   KGS.orcW = KGS.orc.map(o => whiteOf(o.idle[0]));
-  KGS.carry = [0, 1, 2, 3].map(f => orcS('carry', 3, f));
+  KGS.chief = { idle: [chiefS('idle', 0), chiefS('idle', 1)], run: [0, 1, 2, 3].map(f => chiefS('run', f)), carry: [0, 1, 2, 3].map(f => chiefS('carry', f)) };
   KGS.pr = { stand: princess('stand'), fear: princess('fear'), fearN: princess('fear', false) };
   { const L = KGS.pr.stand, o = layer(L.w >> 1, L.h >> 1); for (let y = 0; y < o.h; y++) for (let x = 0; x < o.w; x++) { const cs = [L.d[2 * y * L.w + 2 * x], L.d[2 * y * L.w + 2 * x + 1], L.d[(2 * y + 1) * L.w + 2 * x], L.d[(2 * y + 1) * L.w + 2 * x + 1]].filter(c => c !== 255); if (cs.length) o.d[y * o.w + x] = cs.find(c => c !== 30) ?? cs[0]; } KGS.prHalf = outline(o, 30); }   // her portrait for the hero's thought
   KGS.rs = { run: [0, 1, 2, 3].map(f => roninSide('run', f)), stand: roninSide('stand'), guard: roninSide('guard') };
@@ -196,16 +212,16 @@ function sceneStreet(t) {
   if (t < C.grab) { const fear = t < KG.cheer[0] || t >= C.peek + .8; blit(fear ? KGS.pr.fear : KGS.pr.stand, P.x - QX, STF - 6 - QF); if (!fear || t < KG.cheer[0]) { glow(P.x, STF - 25, 3, .5); } }
   if (t >= C.peek && t < C.gone) {
     let cx, pose, pr = null;
-    if (t < C.grab) { cx = lerp(292, P.x + 14, inOutSine(seg(t, C.peek, C.grab))); pose = KGS.orc[3].run[cyc(t * 8, 4)]; }
-    else if (t < C.carry) { cx = P.x + 12; pose = KGS.orc[3].idle[t < C.rip ? 1 : 0]; pr = t < C.rip ? 'fear' : 'fearN'; }
-    else { cx = P.x + 12 - (t - C.carry) * 6; pose = KGS.carry[cyc(t * 10, 4)]; }
+    if (t < C.grab) { cx = lerp(300, P.x + 17, inOutSine(seg(t, C.peek, C.grab))); pose = KGS.chief.run[cyc(t * 7, 4)]; }
+    else if (t < C.carry) { cx = P.x + 17; pose = KGS.chief.idle[t < C.rip ? 1 : 0]; pr = t < C.rip ? 'fear' : 'fearN'; }
+    else { cx = P.x + 10 - (t - C.carry) * 12; pose = KGS.chief.carry[cyc(t * 8, 4)]; }
     const up = t >= C.carry ? Math.round(seg(t, C.carry, C.gone) * 34) : 0, save = t >= C.carry ? Uint8Array.from(scr.px) : null;   // up the steps and into the dark gate
     if (pr) blit(KGS.pr[pr], P.x - QX - 4, STF - 8 - QF);
-    blit(pose, cx - (OW - 1 - OX), STF - 6 - OF - up, true);
-    if (t >= C.carry) blitRotS(KGS.pr.fearN, cx + 2, STF - 36 - up, -1.45);
-    if (save) { const a = 1 - seg(t, C.gone - .7, C.gone), px = scr.px; for (let y = STF - 90; y < STF; y++) for (let x = cx - 30; x < cx + 30; x++) { const i = y * PW + x; if (x >= 0 && x < PW && B8(x >> 1, y >> 1) > a) px[i] = save[i]; } }
+    blit(pose, cx - (CW - 1 - CX), STF - 6 - CF - up, true);
+    if (t >= C.carry) blitRotS(KGS.pr.fearN, cx + 1, STF - 50 - up, -1.45);
+    if (save) { const a = 1 - seg(t, C.gone - .7, C.gone), px = scr.px; for (let y = STF - 110; y < STF; y++) for (let x = cx - 36; x < cx + 36; x++) { const i = y * PW + x; if (x >= 0 && x < PW && B8(x >> 1, y >> 1) > a) px[i] = save[i]; } }
     if (t >= C.grab && t < C.rip + .1) bang(P.x - 2, STF - 64, 31);
-    if (t >= C.rip && t < C.carry + .6) { const gx = cx + (t < C.carry ? -6 : 4), gy = STF - 40 - (t < C.carry ? seg(t, C.rip, C.rip + .3) * 10 : 0); glow(gx, gy, 5, .8); gemSmall(gx, gy); if (cyc(t * 6, 2)) scr.pset(gx - 4, gy - 3, 42).pset(gx + 4, gy + 3, 42); }
+    if (t >= C.rip && t < C.carry + .6) { const gx = cx + (t < C.carry ? -18 : -7), gy = t < C.carry ? STF - 36 - seg(t, C.rip, C.rip + .3) * 6 : STF - 50 - up; glow(gx, gy, 5, .8); gemSmall(gx, gy); if (cyc(t * 6, 2)) scr.pset(gx - 4, gy - 3, 42).pset(gx + 4, gy + 3, 42); }
   }
   // the orcs
   KG.orcs.forEach((o, i) => { const s = orcAt(i, t); if (s.x > PW + 30 || s.y > PH + 30) return;

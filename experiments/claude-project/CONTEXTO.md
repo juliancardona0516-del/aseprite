@@ -27,7 +27,7 @@ trabajo de video vive aparte, en `experiments/` y `.claude/skills/`.
 | **Los orcos azules** | Más pequeños que el villano, piel azul, colmillos, garrotes, lanzas y antorchas; su ejército |
 | **La madre del rōnin** | Kimono rojo intenso con flores de cerezo y obi dorado, pelo negro recogido con kanzashi; le canta a su hijo y le regala el colgante |
 | **La princesa** | Kimono rosa con flores blancas, obi rojo, pelo negro largo con flequillo recto, pequeña tiara dorada; llevaba un colgante azul igual al del rōnin (el jefe orco se lo quitó) |
-| **El jefe orco** | Orco azul con cinta roja en la cabeza, sin arma; rapta a la princesa |
+| **El jefe orco** | Orco azul mucho más grande y corpulento que los demás (casi el doble de alto), cinta roja en la cabeza, hombrera de púas, sin arma; rapta a la princesa |
 | **El colgante** | Rombo azul brillante (facetas azules, brillo cian), con cordón rojo |
 | **La tortuga gigante** | Dorado opaco, con barba; se traga a los cinco aventureros |
 
