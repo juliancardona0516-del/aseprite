@@ -29,7 +29,7 @@ function localThree() {
   const { DURATION } = await p.evaluate(() => window.__meta), n = Math.round(fps * DURATION);
   fs.rmSync(framesDir, { recursive: true, force: true }); fs.mkdirSync(framesDir, { recursive: true });
   for (let i = 0; i < n; i++) {
-    const data = await p.evaluate(t => { window.__draw(t); return document.getElementById('out').toDataURL('image/png'); }, i / fps);
+    const data = await p.evaluate(t => { window.__draw(t); return (document.getElementById('out') || document.querySelector('canvas')).toDataURL('image/png'); }, i / fps);
     fs.writeFileSync(path.join(framesDir, String(i).padStart(4, '0') + '.png'), Buffer.from(data.split(',')[1], 'base64'));
   }
   const hasAudio = await p.evaluate(() => typeof window.__renderAudio === 'function'), wav = path.join(framesDir, 'audio.wav');

@@ -13,6 +13,7 @@ de Aseprite y no tienen dependencias: cada página es HTML más JavaScript clás
 | `tavern.html` | Tavern Lyrics | Mago y caballero en la taberna, letra a 74 BPM («How do you say tomorrow in Spanish?») | Para la pista del autor |
 | `refl.html` | The Reflection | El héroe de pelo rojo se mira en la cascada; cita de Tony Robbins | Solo SFX |
 | `turtle.html` | The Turtle | Los 5 en la fogata de una cueva que resulta ser una tortuga gigante dorada | Solo SFX |
+| `pendant.html` | El colgante | Flashback del rōnin: de niño en un patio de Kioto con cerezos, su madre en kimono le canta y le da un colgante azul; en el presente lo mira brillar; cita de García Márquez | Solo SFX |
 | `sheet.html` | Hoja de personajes | Todos los viajeros con sus fotogramas de caminar | — |
 
 ## Archivos compartidos

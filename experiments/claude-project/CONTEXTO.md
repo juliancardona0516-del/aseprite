@@ -25,6 +25,8 @@ trabajo de video vive aparte, en `experiments/` y `.claude/skills/`.
 | **El arquero rubio** | Pelo rubio con coleta, oreja de elfo, capa verde, carcaj; la escena de la ventana y las auroras |
 | **El villano (demonio rojo)** | Piel roja muy musculosa, pelo negro largo, cuernos curvos, ojos azules brillantes con destellos, cicatrices en X en pecho y hombro, guanteletes negros de pelaje con garras, cinturón con placa y escarcelas en chevrón, rodilleras y grebas con púas, gran hacha oscura. Boceto original del autor |
 | **Los orcos azules** | Más pequeños que el villano, piel azul, colmillos, garrotes, lanzas y antorchas; su ejército |
+| **La madre del rōnin** | Kimono rojo intenso con flores de cerezo y obi dorado, pelo negro recogido con kanzashi; le canta a su hijo y le regala el colgante |
+| **El colgante** | Rombo azul brillante (facetas azules, brillo cian), con cordón rojo |
 | **La tortuga gigante** | Dorado opaco, con barba; se traga a los cinco aventureros |
 
 Los cinco aventureros juntos son "el grupo" (escena de la fogata y la tortuga, escena del viaje).
@@ -46,10 +48,11 @@ Los cinco aventureros juntos son "el grupo" (escena de la fogata y la tortuga, e
 | 11 | Wakayama | El rōnin (pelo azul, con rostro) y el dragón ante la pagoda y la cascada de Nachi; 3 momentos | — |
 | 12 | La ventana (auroras) | El arquero rubio sentado en una ventana: montaña nevada, auroras boreales, estrella fugaz | «Vivir es un instante, la obra maestra permanece, admírala mientras puedas» |
 | 13 | El trono | Castillo negro bajo luna roja, zoom a la ventana del trono; el demonio ruge y ordena a los orcos azules destruir la aldea; la aldea arde | Solo SFX |
+| 14 | El colgante | Flashback del rōnin: de niño en un patio de Kioto lleno de cerezos, su madre en kimono le canta y le regala un colgante azul en forma de rombo; en el presente el colgante brilla en su mano | «Recordar es fácil para el que tiene memoria, olvidarse es difícil para quien tiene corazón» — Gabriel García Márquez |
 
 Dónde está cada una en el repo:
-- Escenas 2–9 (Canvas 2D): `experiments/pixel-quest/` (`journey`, `twist`, `dance`, `fish`, `moon`, `tavern`, `refl`,
-  `turtle`). Comparten `journey.js` (personajes y escenarios) y el runtime de motion-kit (`pixel.js`, `chip.js`).
+- Escenas 2–9 y 14 (Canvas 2D): `experiments/pixel-quest/` (`journey`, `twist`, `dance`, `fish`, `moon`, `tavern`, `refl`,
+  `turtle`, `pendant`). Comparten `journey.js` (personajes y escenarios) y el runtime de motion-kit (`pixel.js`, `chip.js`).
 - Escenas 10–13 (2.5D, three.js): `experiments/spike-25d/` (`index`, `wakayama`, `aurora`, `throne`).
 - La escena 1 (relojes) no se conservó.
 
