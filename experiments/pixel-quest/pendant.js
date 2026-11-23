@@ -1,10 +1,10 @@
 // =====================================================================
-// El colgante — 28 s, 9:16. The rōnin, at night under a cherry tree, closes his eyes and remembers: a boy in a Kyoto
+// El colgante — 26.6 s, 9:16. The rōnin, at night under a cherry tree, closes his eyes and remembers: a boy in a Kyoto
 // courtyard full of cherry blossoms, his mother in a beautiful kimono singing to him, the blue rhombus pendant she
 // gave him. Back to the present: the pendant glows in his hand. It ends as a book page with García Márquez's words.
 // Sound effects only (no music). Reuses journey.js (palette, layers, screen) and the book of moon.js.
 // =====================================================================
-const PD_DUR = 28;
+const PD_DUR = 26.6;
 // ---------------------------------------------------------------- PLAN AS DATA
 const ENG = 410, GRV = 452, NOWF = 432;                              // engawa (veranda) top, courtyard ground, the hill in the present
 const PD = {
@@ -12,7 +12,7 @@ const PD = {
   nod: 1.8, toMem: 3.4, fromMem: 13.0, flash: 1.0,                   // white "dream" dissolves, centred on these times
   run: [3.6, 6.3], toMom: [6.3, 7.5], song: 4.8,                     // memory: he chases a petal, she starts singing, he runs to her
   close: [8.2, 12.6], stroke: [8.6, 10.0], give: [10.0, 10.9], gift: 10.9,
-  hold: 14.0, insert: [15.6, 19.2], tear: 17.4, book: 20.8, dissolve: .9,
+  hold: 14.0, insert: [15.6, 17.8], tear: 16.5, book: 19.4, dissolve: .9,
   views: [
     { from: 0, k: 1 }, { from: 1.1, k: 2, x: 83, y: 240, pan: 2 },     // closer: he closes his eyes
     { from: 3.4, k: 1 },
@@ -25,7 +25,7 @@ const PD = {
     { s: '"RECORDAR ES F^ACIL PARA', c: 20, sc: 2 }, { s: 'EL QUE TIENE MEMORIA,', c: 20, sc: 2 },
     { s: 'OLVIDAR ES DIF^ICIL', c: 20, sc: 2 }, { s: 'PARA EL QUE TIENE', c: 20, sc: 2 }, { s: 'CORAZ^ON."', c: 31, sc: 3 },
   ],
-  author: 'GABRIEL GARC^IA M^ARQUEZ', lineStart: 21.7, lineEvery: .75,
+  author: 'GABRIEL GARC^IA M^ARQUEZ', lineStart: 20.3, lineEvery: .75,
 };
 
 // ---------------------------------------------------------------- palettes: the present uses the plain palette (dark indexes for night);
