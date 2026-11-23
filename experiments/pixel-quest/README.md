@@ -14,6 +14,7 @@ de Aseprite y no tienen dependencias: cada página es HTML más JavaScript clás
 | `refl.html` | The Reflection | El héroe de pelo rojo se mira en la cascada; cita de Tony Robbins | Solo SFX |
 | `turtle.html` | The Turtle | Los 5 en la fogata de una cueva que resulta ser una tortuga gigante dorada | Solo SFX |
 | `pendant.html` | El colgante | Flashback del rōnin: de niño en un patio de Kioto con cerezos, su madre en kimono le canta y le da un colgante azul; en el presente lo mira brillar; cita de García Márquez | Solo SFX |
+| `kingdom.html` | El reino (Continuará…) | Los orcos azules atacan un castillo japonés en la montaña; el grupo los vence; el jefe orco rapta a la princesa del kimono rosa y le arranca su colgante azul; llega el rōnin tarde y el héroe de pelo rojo, al ver su colgante, lo cree culpable: duelo y «CONTINUARÁ…». Carga también `pendant.js` | Solo SFX |
 | `sheet.html` | Hoja de personajes | Todos los viajeros con sus fotogramas de caminar | — |
 
 ## Archivos compartidos

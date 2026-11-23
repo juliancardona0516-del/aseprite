@@ -26,6 +26,8 @@ trabajo de video vive aparte, en `experiments/` y `.claude/skills/`.
 | **El villano (demonio rojo)** | Piel roja muy musculosa, pelo negro largo, cuernos curvos, ojos azules brillantes con destellos, cicatrices en X en pecho y hombro, guanteletes negros de pelaje con garras, cinturón con placa y escarcelas en chevrón, rodilleras y grebas con púas, gran hacha oscura. Boceto original del autor |
 | **Los orcos azules** | Más pequeños que el villano, piel azul, colmillos, garrotes, lanzas y antorchas; su ejército |
 | **La madre del rōnin** | Kimono rojo intenso con flores de cerezo y obi dorado, pelo negro recogido con kanzashi; le canta a su hijo y le regala el colgante |
+| **La princesa** | Kimono rosa con flores blancas, obi rojo, pelo negro largo con flequillo recto, pequeña tiara dorada; llevaba un colgante azul igual al del rōnin (el jefe orco se lo quitó) |
+| **El jefe orco** | Orco azul con cinta roja en la cabeza, sin arma; rapta a la princesa |
 | **El colgante** | Rombo azul brillante (facetas azules, brillo cian), con cordón rojo |
 | **La tortuga gigante** | Dorado opaco, con barba; se traga a los cinco aventureros |
 
@@ -49,10 +51,11 @@ Los cinco aventureros juntos son "el grupo" (escena de la fogata y la tortuga, e
 | 12 | La ventana (auroras) | El arquero rubio sentado en una ventana: montaña nevada, auroras boreales, estrella fugaz | «Vivir es un instante, la obra maestra permanece, admírala mientras puedas» |
 | 13 | El trono | Castillo negro bajo luna roja, zoom a la ventana del trono; el demonio ruge y ordena a los orcos azules destruir la aldea; la aldea arde | Solo SFX |
 | 14 | El colgante | Flashback del rōnin: de niño en un patio de Kioto lleno de cerezos, su madre en kimono le canta y le regala un colgante azul en forma de rombo; en el presente el colgante brilla en su mano | «Recordar es fácil para el que tiene memoria, olvidar es difícil para el que tiene corazón» — Gabriel García Márquez |
+| 15 | El reino (1.ª parte) | Castillo japonés en la montaña (según una pintura de referencia del autor) atacado por orcos azules; el grupo los vence; el jefe orco (cinta roja) rapta a la princesa del kimono rosa, le arranca su colgante azul y se la lleva por la puerta del castillo; el rōnin llega tarde; el héroe de pelo rojo ve su colgante igual y lo acusa («¡DEVUÉLVELA!» / «¡NO FUI YO!»), duelo | «CONTINUARÁ...» |
 
 Dónde está cada una en el repo:
 - Escenas 2–9 y 14 (Canvas 2D): `experiments/pixel-quest/` (`journey`, `twist`, `dance`, `fish`, `moon`, `tavern`, `refl`,
-  `turtle`, `pendant`). Comparten `journey.js` (personajes y escenarios) y el runtime de motion-kit (`pixel.js`, `chip.js`).
+  `turtle`, `pendant`, `kingdom`). Comparten `journey.js` (personajes y escenarios) y el runtime de motion-kit (`pixel.js`, `chip.js`).
 - Escenas 10–13 (2.5D, three.js): `experiments/spike-25d/` (`index`, `wakayama`, `aurora`, `throne`).
 - La escena 1 (relojes) no se conservó.
 
