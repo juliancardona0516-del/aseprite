@@ -48,7 +48,7 @@ Los cinco aventureros juntos son "el grupo" (escena de la fogata y la tortuga, e
 | 11 | Wakayama | El rōnin (pelo azul, con rostro) y el dragón ante la pagoda y la cascada de Nachi; 3 momentos | — |
 | 12 | La ventana (auroras) | El arquero rubio sentado en una ventana: montaña nevada, auroras boreales, estrella fugaz | «Vivir es un instante, la obra maestra permanece, admírala mientras puedas» |
 | 13 | El trono | Castillo negro bajo luna roja, zoom a la ventana del trono; el demonio ruge y ordena a los orcos azules destruir la aldea; la aldea arde | Solo SFX |
-| 14 | El colgante | Flashback del rōnin: de niño en un patio de Kioto lleno de cerezos, su madre en kimono le canta y le regala un colgante azul en forma de rombo; en el presente el colgante brilla en su mano | «Recordar es fácil para el que tiene memoria, olvidarse es difícil para quien tiene corazón» — Gabriel García Márquez |
+| 14 | El colgante | Flashback del rōnin: de niño en un patio de Kioto lleno de cerezos, su madre en kimono le canta y le regala un colgante azul en forma de rombo; en el presente el colgante brilla en su mano | «Recordar es fácil para el que tiene memoria, olvidar es difícil para el que tiene corazón» — Gabriel García Márquez |
 
 Dónde está cada una en el repo:
 - Escenas 2–9 y 14 (Canvas 2D): `experiments/pixel-quest/` (`journey`, `twist`, `dance`, `fish`, `moon`, `tavern`, `refl`,

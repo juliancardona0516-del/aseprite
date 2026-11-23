@@ -23,7 +23,7 @@ const PD = {
   ],
   lines: [
     { s: '"RECORDAR ES F^ACIL PARA', c: 20, sc: 2 }, { s: 'EL QUE TIENE MEMORIA,', c: 20, sc: 2 },
-    { s: 'OLVIDARSE ES DIF^ICIL', c: 20, sc: 2 }, { s: 'PARA QUIEN TIENE', c: 20, sc: 2 }, { s: 'CORAZ^ON."', c: 31, sc: 3 },
+    { s: 'OLVIDAR ES DIF^ICIL', c: 20, sc: 2 }, { s: 'PARA EL QUE TIENE', c: 20, sc: 2 }, { s: 'CORAZ^ON."', c: 31, sc: 3 },
   ],
   author: 'GABRIEL GARC^IA M^ARQUEZ', lineStart: 21.7, lineEvery: .75,
 };
