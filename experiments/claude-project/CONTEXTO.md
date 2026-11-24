@@ -23,6 +23,7 @@ trabajo de video vive aparte, en `experiments/` y `.claude/skills/`.
 | **La aventurera de pelo rosa** | Bailarina; aparece bailando en el bosque de bambú |
 | **El héroe de pelo rojo** | Armadura azul y espada esmeralda; pescador (el pez gigante), se mira en la cascada |
 | **El arquero rubio** | Pelo rubio con coleta, oreja de elfo, capa verde, carcaj; la escena de la ventana y las auroras |
+| **El rōnin** | Pelo azul, sombrero de paja cónico (kasa), kimono blanco con nubes doradas, faja roja, hakama oscuro, espada roja; lleva el colgante azul que le regaló su madre. De niño: pelo azul alborotado, el mismo kimono blanco con faja roja |
 | **El villano (demonio rojo)** | Piel roja muy musculosa, pelo negro largo, cuernos curvos, ojos azules brillantes con destellos, cicatrices en X en pecho y hombro, guanteletes negros de pelaje con garras, cinturón con placa y escarcelas en chevrón, rodilleras y grebas con púas, gran hacha oscura. Boceto original del autor |
 | **Los orcos azules** | Más pequeños que el villano, piel azul, colmillos, garrotes, lanzas y antorchas; su ejército |
 | **La madre del rōnin** | Kimono rojo intenso con flores de cerezo y obi dorado, pelo negro recogido con kanzashi; le canta a su hijo y le regala el colgante |
@@ -54,10 +55,12 @@ Los cinco aventureros juntos son "el grupo" (escena de la fogata y la tortuga, e
 | 15 | El reino (1.ª parte) | Castillo japonés en la montaña (según una pintura de referencia del autor) atacado por orcos azules; el grupo los vence; el jefe orco (cinta roja) rapta a la princesa del kimono rosa, le arranca su colgante azul y se la lleva por la puerta del castillo; el grupo ataca al jefe pero un campo de fuerza morado repele flechas, magia y golpes; el rōnin llega tarde; el héroe de pelo rojo ve su colgante igual y lo acusa («¡DEVUÉLVELA!» / «¡NO FUI YO!»), duelo | «CONTINUARÁ...» |
 
 Dónde está cada una en el repo:
-- Escenas 2–9 y 14 (Canvas 2D): `experiments/pixel-quest/` (`journey`, `twist`, `dance`, `fish`, `moon`, `tavern`, `refl`,
+- Escenas 2–9, 14 y 15 (Canvas 2D): `experiments/pixel-quest/` (`journey`, `twist`, `dance`, `fish`, `moon`, `tavern`, `refl`,
   `turtle`, `pendant`, `kingdom`). Comparten `journey.js` (personajes y escenarios) y el runtime de motion-kit (`pixel.js`, `chip.js`).
 - Escenas 10–13 (2.5D, three.js): `experiments/spike-25d/` (`index`, `wakayama`, `aurora`, `throne`).
 - La escena 1 (relojes) no se conservó.
+- Renders en solitario de cada personaje (PNG nativo, ampliado y ficha): `experiments/characters/png/`, regenerables con
+  `node experiments/characters/export.cjs`.
 
 ## 4. Preferencias del autor (respetar siempre)
 
@@ -96,4 +99,5 @@ Dónde está cada una en el repo:
   Para un plano "un poco más cerca", renderizar a 135×240 y escalar ×8 (1 texel sigue siendo 1 píxel).
 - **Determinismo:** `window.__draw(t)` dibuja cualquier instante; nada aleatorio sin semilla. El audio sale de
   `window.__renderAudio()` (OfflineAudioContext → WAV) y `capture.cjs` lo mezcla.
-- Comando de exportación: `node capture.cjs --page <escena>.html --out out/<escena>.mp4`.
+- Comando de exportación (desde `experiments/spike-25d/`): `node capture.cjs --page <escena>.html --out out/<escena>.mp4`;
+  para las escenas 2D, `--page ../pixel-quest/<escena>.html`.
