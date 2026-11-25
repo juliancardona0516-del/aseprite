@@ -24,13 +24,17 @@ node experiments/characters/export.cjs     # regenera png/
 | `03-arquero-rubio` | Arquero rubio | journey, spike-25d/aurora | de pie, caminar ×4, sentado de espaldas, mirando arriba, señalando (+HD) |
 | `04-caballero` | Caballero | journey | de pie, caminar ×4 |
 | `05-aventurera-pelo-rosa` | Aventurera de pelo rosa | journey, dance | de pie, caminar ×4, tres pasos de baile ×4 |
-| `06-ronin` | Rōnin | spike-25d/wakayama | espalda, frente, saludo, en guardia, golpe, remate, caminar… (+HD) |
+| `06-ronin` | Rōnin | spike-25d/wakayama, pixel-quest/kingdom | espalda, frente, saludo, en guardia, golpe, remate, caminar… (+HD); de perfil: corre ×4, de pie, en guardia |
 | `07-dragon` | Dragón | spike-25d/wakayama | rugido |
 | `08-demonio` | El villano (demonio rojo) | spike-25d/throne | sentado, mirada, rugido (+HD) |
 | `09-orco-azul` | Orco azul | spike-25d/throne | de pie (de espaldas), grito ×2, carrera ×2; con garrote, lanza o antorcha |
 | `10-pez-gigante` | Pez gigante | pixel-quest/fish | boca cerrada, boca abierta, derrotado |
 | `11-tortuga-gigante` | Tortuga gigante | pixel-quest/turtle | dormida, despierta, boca abierta |
 | `12-mascota` | Mascota (recuerdo del mago) | pixel-quest/moon | normal, aplastada |
+| `13-princesa` | La princesa | pixel-quest/kingdom | de pie, asustada, asustada sin colgante |
+| `14-jefe-orco` | El jefe orco (el grande) | pixel-quest/kingdom | de pie, agarra, corre ×4, carga ×4 |
+| `15-madre-del-ronin` | La madre del rōnin | pixel-quest/pendant | sentada, canta ×2, acaricia ×2, da el colgante |
+| `16-ronin-nino` | El rōnin de niño | pixel-quest/pendant | de pie, corre ×4, sentado, mira arriba, con colgante |
 
 Los colores de las escenas 2D son los de la paleta base de día; en las escenas los tiñe la luz (atardecer, noche).
 Las páginas 2.5D exponen sus sprites con `window.__cast()`, un acceso de solo lectura que no cambia la escena.

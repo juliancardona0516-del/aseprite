@@ -21,6 +21,7 @@ const CAST = [
   { slug: '05-aventurera-pelo-rosa', name: 'Aventurera de pelo rosa', page: 'pixel-quest/dance.html', main: 'de-pie',
     get: `({ stand: SPR.healer.stand, ...Object.fromEntries(SPR.healer.walk.map((s, i) => ['walk' + i, s])), ...Object.fromEntries(['dU', 'dF', 'dP'].flatMap(p => DSPR[p].map((s, i) => [{ dU: 'baile-brazos-arriba', dF: 'baile-frente', dP: 'baile-pirueta' }[p] + '-' + (i + 1), s]))) })` },
   { slug: '06-ronin', name: 'Rōnin', page: 'spike-25d/wakayama.html', main: 'frente',
+    extra: { page: 'pixel-quest/kingdom.html', get: `({ ...Object.fromEntries(KGS.rs.run.map((s, i) => ['perfil-corre-' + (i + 1), s])), 'perfil-de-pie': KGS.rs.stand, 'perfil-en-guardia': KGS.rs.guard })` },
     get: `(c => { const o = {}; for (const [k, v] of Object.entries(c.ronin)) { if (Array.isArray(v)) v.forEach((s, i) => o[k + i] = s); else o[k] = v; } for (const [k, v] of Object.entries(c.roninHD)) { if (Array.isArray(v)) v.forEach((s, i) => o[k + i + '-HD'] = s); else o[k + '-HD'] = v; } return o; })(window.__cast())` },
   { slug: '07-dragon', name: 'Dragón', page: 'spike-25d/wakayama.html', main: 'rugido', get: `({ rugido: window.__cast().dragon })` },
   { slug: '08-demonio', name: 'El villano (demonio rojo)', page: 'spike-25d/throne.html', main: 'sentado',
@@ -33,6 +34,14 @@ const CAST = [
     get: `({ dormida: __shot(() => { blit(TL2.body, 0, 0); turtleHead(0, 0, 0); }), despierta: __shot(() => { blit(TL2.body, 0, 0); turtleHead(0, 0, 1); }), 'boca-abierta': __shot(() => { blit(TL2.body, 0, 0); turtleHead(0, 1, 1); }) })` },
   { slug: '12-mascota', name: 'Mascota (recuerdo del mago)', page: 'pixel-quest/moon.html', main: 'normal',
     get: `({ normal: mkPet(false), aplastada: mkPet(true) })` },
+  { slug: '13-princesa', name: 'La princesa', page: 'pixel-quest/kingdom.html', main: 'de-pie',
+    get: `({ 'de-pie': KGS.pr.stand, asustada: KGS.pr.fear, 'asustada-sin-colgante': KGS.pr.fearN })` },
+  { slug: '14-jefe-orco', name: 'El jefe orco', page: 'pixel-quest/kingdom.html', main: 'de-pie',
+    get: `({ 'de-pie': KGS.chief.idle[1], 'agarra': KGS.chief.idle[0], ...Object.fromEntries(KGS.chief.run.map((s, i) => ['corre-' + (i + 1), s])), ...Object.fromEntries(KGS.chief.carry.map((s, i) => ['carga-' + (i + 1), s])) })` },
+  { slug: '15-madre-del-ronin', name: 'La madre del rōnin', page: 'pixel-quest/pendant.html', main: 'sentada',
+    get: `({ sentada: PDS.mom.sit, 'canta-1': PDS.mom.sing[0], 'canta-2': PDS.mom.sing[1], 'acaricia-1': PDS.mom.stroke[0], 'acaricia-2': PDS.mom.stroke[1], 'da-el-colgante': PDS.mom.give })` },
+  { slug: '16-ronin-nino', name: 'El rōnin de niño', page: 'pixel-quest/pendant.html', main: 'de-pie',
+    get: `({ 'de-pie': PDS.kid.stand, ...Object.fromEntries(PDS.kid.run.map((s, i) => ['corre-' + (i + 1), s])), sentado: PDS.kid.sit, 'mira-arriba': PDS.kid.sitUp, 'con-colgante': PDS.kid.sitP })` },
 ];
 
 // runs inside the page: turns any sprite into a cropped PNG (native) and an enlarged one
