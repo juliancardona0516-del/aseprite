@@ -52,14 +52,14 @@ const T = {
 const PITCH = 6, ORBIT = 5;                                        // degrees: a low camera; yaw = ORBIT * sin(2πt/15)
 const LAYERS = {                                                   // depth z, and the screen row of each layer's bottom edge at yaw 0
   sky:   { z: -30, bottom: 183 }, band: { z: -26, bottom: 173 }, rays: { z: -12, bottom: 262 },
-  sea:   { z: -14, bottom: 256 }, sand: { z: -4, bottom: 319 }, lyra: { z: 0, bottom: 292, x: 62 },
+  sea:   { z: -14, bottom: 256 }, sand: { z: -4, bottom: 319 }, lyra: { z: 0, bottom: 310, x: 50 },   // Lyra at double detail: ~90 px tall
   // the rays (and the sun they come from) sit just in front of the sea so they fall across it
 
 };
 const SUN = { x: 120, row: 176 };                                  // on screen: just under the dark band, above the horizon
 const HORIZON = 183;
 const LINES = ['Donde las palabras no alcanzan,', 'la música habla.'], AUTHOR = '- HANS CHRISTIAN ANDERSEN -';
-const TEXT_ROWS = [192, 205], AUTHOR_ROW = 220;
+const TEXT_ROWS = [186, 199], AUTHOR_ROW = 212;
 
 // =================================================================== the scene's palette (the warm world, and the cool magic)
 const SP = {
@@ -106,12 +106,26 @@ const LY = {};
   LY.idle0 = build('stand', 0); LY.idle1 = LY.idle0.map(breathe);
   LY.sing0 = build('sing', 0); LY.sing1 = build('sing', 1); LY.high = build('high', 1);
 }
+function hdLayer(L) {                                              // double detail: every texel becomes 2x2 (outline dropped), then fine detail, then a new 1-px outline
+  const o = layer(L.w * 2, L.h * 2), W2 = o.w;
+  for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) { const c = L.d[y * L.w + x]; if (c === 255 || c === 30) continue; for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) o.d[(2 * y + dy) * W2 + 2 * x + dx] = c; }
+  const src = new Uint8Array(o.d), at = (x, y) => (x < 0 || y < 0 || x >= W2 || y >= o.h) ? 255 : src[y * W2 + x];
+  for (let y = 0; y < o.h; y++) for (let x = 0; x < W2; x++) {
+    const c = src[y * W2 + x]; if (c === 255) continue;
+    if (c === 36) { if (at(x, y - 1) === 255 && x % 3 === 0) o.d[y * W2 + x] = 6; else if ((x + (y >> 1)) % 5 === 0) o.d[y * W2 + x] = 37; }   // hair: shine on top, strands
+    else if (c === 6 && y > (SFY - 7) * 2 && x % 6 === 0 && at(x, y - 2) === 6) o.d[y * W2 + x] = 7;                                         // folds in the skirt
+    else if (c === 35 && at(x, y - 1) !== 35) o.d[y * W2 + x] = 41;                                                                         // gold catches the light
+    else if (c === 38 && at(x - 1, y) === 38 && at(x, y - 1) === 38) o.d[y * W2 + x] = 42;                                                 // the gem sparkles
+  }
+  return outline(o, 30);
+}
 function layerTexture(L) {                                          // an indexed journey.js layer -> a nearest-filtered texture (journey palette)
   const c = document.createElement('canvas'); c.width = L.w; c.height = L.h; const x = c.getContext('2d'), img = x.createImageData(L.w, L.h);
   for (let i = 0; i < L.d.length; i++) { const v = L.d[i]; if (v === 255) continue; const n = parseInt(PALETTE[v].slice(1), 16); img.data.set([n >> 16, (n >> 8) & 255, n & 255, 255], i * 4); }
   x.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-const LYT = Object.fromEntries(Object.entries(LY).map(([k, v]) => [k, v.map(layerTexture)]));
+const LYH = Object.fromEntries(Object.entries(LY).map(([k, v]) => [k, v.map(hdLayer)])), LYT = Object.fromEntries(Object.entries(LYH).map(([k, v]) => [k, v.map(layerTexture)]));
+let LYCUR = LYH.idle0[0];                                            // the frame on screen: the aura stays off her silhouette
 
 // =================================================================== the layers, drawn every frame (all periodic in 15 s)
 const SKY = new Pix(300, 184), BAND = new Pix(300, 66), RAYS = new Pix(250, 100), SEA = new Pix(240, 74), SAND = new Pix(200, 66);
@@ -212,7 +226,7 @@ billboard(BAND.texture(), BAND.w, BAND.h, BAND.w >> 1, BAND.h - 1, LAYERS.band);
 billboard(SEA.texture(), SEA.w, SEA.h, SEA.w >> 1, SEA.h - 1, LAYERS.sea);
 billboard(RAYS.texture(), RAYS.w, RAYS.h, RAYS.w >> 1, RAYS.h - 1, LAYERS.rays);
 billboard(SAND.texture(), SAND.w, SAND.h, SAND.w >> 1, SAND.h - 1, LAYERS.sand);
-const lyra = billboard(LYT.idle0[0], 46, 56, SX, SFY, LAYERS.lyra);
+const lyra = billboard(LYT.idle0[0], 92, 112, SX * 2, SFY * 2 + 1, LAYERS.lyra);
 
 // =================================================================== the story at time t
 function story(t) {
@@ -229,7 +243,7 @@ function story(t) {
 
 // =================================================================== the magic and the words: drawn at 180x320 over the frame, in cool colours
 const FX = new Pix(IW, IH);
-const MOUTH = { x: LAYERS.lyra.x + 1, y: LAYERS.lyra.bottom - (SFY - 36) };   // screen position of her mouth (journey.js head geometry)
+const MOUTH = { x: LAYERS.lyra.x + 2, y: LAYERS.lyra.bottom - (SFY * 2 + 1 - 72) };   // screen position of her mouth (journey.js head geometry, doubled)
 const NOTE_GLYPHS = [['..##', '..#.', '..#.', '..#.', '###.', '###.'], ['.####', '.#..#', '.#..#', '.#..#', '##.##', '##.##'], ['..#.', '..##', '..#.#', '..#..', '###.', '###.']];
 function notes(t) {
   const P = FX;
@@ -249,11 +263,12 @@ function motes(t, a) {                                             // pink and c
   }
 }
 function aura(t, a, burst) {                                       // a faint pink/cyan halo around her; a soft radial flash on the high note
-  const cx = LAYERS.lyra.x, cy = LAYERS.lyra.bottom - 22, pulse = .5 + .5 * Math.sin(per(t, 2.5));
-  for (let y = -30; y <= 30; y++) for (let x = -20; x <= 20; x++) {
-    const d = Math.hypot(x / 20, y / 30); if (d > 1 || d < .38) continue;
-    const X = cx + x, Y = cy + y, v = Math.sin((d - .38) / .62 * Math.PI) * a * (.55 + .25 * pulse);
-    if (v > bay(X, Y) * 1.6 + .12) FX.p(X, Y, ((X >> 1) + (Y >> 1)) % 3 === 0 ? 'c' : ((X + Y) & 2 ? 'p' : 'v'));
+  const cx = LAYERS.lyra.x, cy = LAYERS.lyra.bottom - 44, pulse = .5 + .5 * Math.sin(per(t, 2.5));
+  for (let y = -58; y <= 58; y++) for (let x = -36; x <= 36; x++) {
+    const d = Math.hypot(x / 36, y / 58); if (d > 1 || d < .38) continue;
+    const X = cx + x, Y = cy + y, v = Math.sin((d - .38) / .62 * Math.PI) * a * (.4 + .2 * pulse);
+    const lx = X - (LAYERS.lyra.x - SX * 2), ly = Y - (LAYERS.lyra.bottom - (SFY * 2 + 1)); if (lx >= 0 && ly >= 0 && lx < LYCUR.w && ly < LYCUR.h && LYCUR.d[ly * LYCUR.w + lx] !== 255) continue;
+    if (v > bay(X, Y) * 1.8 + .16) FX.p(X, Y, ((X >> 1) + (Y >> 1)) % 3 === 0 ? 'c' : ((X + Y) & 2 ? 'p' : 'v'));
   }
   if (burst > 0) { const r = 10 + (1 - burst) * 90; for (let k = 0; k < 64; k++) { const ang = k * TAU / 64, X = cx + Math.cos(ang) * r, Y = cy - 10 + Math.sin(ang) * r * 1.1; if (bay(k, Math.round(r)) < burst) FX.p(X, Y, k % 2 ? 'C' : 'v'); }
     for (let k = 0; k < 12; k++) { const ang = k * TAU / 12, r2 = 8 + (1 - burst) * 30; FX.p(cx + Math.cos(ang) * r2, cy - 14 + Math.sin(ang) * r2, 'w'); } }
@@ -291,7 +306,7 @@ function draw(t) {
   t = ((t % LOOP) + LOOP) % LOOP;
   const S = story(t), yaw = rad(S.yaw);
   drawSky(t); drawBand(t); drawRays(t, S.boost); drawSea(t); drawSand(t);
-  lyra.mat.map = LYT[S.pose][S.wind];
+  lyra.mat.map = LYT[S.pose][S.wind]; LYCUR = LYH[S.pose][S.wind];
   for (const s of SPRITES) s.mesh.rotation.set(-P_, yaw, 0, 'YXZ');
   const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(P_), Math.sin(P_), Math.cos(yaw) * Math.cos(P_));
   camera.position.copy(TARGET).addScaledVector(dir, 100); camera.lookAt(TARGET); camera.updateMatrixWorld();

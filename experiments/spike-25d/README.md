@@ -264,6 +264,8 @@ en la orilla; la frase de Hans Christian Andersen se escribe al ritmo del canto.
   crepusculares −12 (delante del mar para caer sobre él) · arena mojada con espuma −4 · Lyra 0. Órbita de ±5° de yaw.
 - Lyra es su sprite canónico de `pixel-quest/journey.js`; las poses nuevas (mano en el pecho cantando, brazos abiertos,
   respiración) se añaden con un gancho como en `dance.js`, y el viento mueve su pelo y el bajo del vestido (4 cuadros).
+  Se muestra a doble detalle (`hdLayer`: cada texel 2×2, mechones, pliegues, brillos y contorno nuevo), ~90 px de alto;
+  el aura no se dibuja sobre su silueta.
 - La magia va en tonos fríos sobre el fondo cálido: aura rosa/cian, notas que se deshacen en chispas, motas que suben de
   la arena, destello radial en la nota alta (8.3 s) con los rayos al máximo.
 - Todo lo periódico (olas y espuma cada 5 s, nubes, cámara, viento) cierra ciclos enteros en 15 s: el final enlaza con el inicio.
