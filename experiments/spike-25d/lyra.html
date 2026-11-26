@@ -46,7 +46,7 @@ const LOOP = DURATION;                                             // everything
 const T = {
   idle: [0, 2], sing: [2, 8], high: [8, 11], sing2: [11, 13], calm: [13, 15],
   notes: [2.3, 12.2], noteEvery: .55, noteLife: 2.4,
-  line1: [4.0, 8.0], line2: [8.3, 10.8], author: [11.0, 11.8], textOut: [13.4, 14.8],
+  title: [3.6, 4.8], line1: [5.0, 8.0], line2: [8.3, 10.8], textOut: [13.4, 14.8],
   flash: 8.3, raysBoost: [8.0, 9.6],
 };
 const PITCH = 6, ORBIT = 5;                                        // degrees: a low camera; yaw = ORBIT * sin(2πt/15)
@@ -58,8 +58,12 @@ const LAYERS = {                                                   // depth z, a
 };
 const SUN = { x: 120, row: 176 };                                  // on screen: just under the dark band, above the horizon
 const HORIZON = 183;
-const LINES = ['Donde las palabras no alcanzan,', 'la música habla.'], AUTHOR = '- HANS CHRISTIAN ANDERSEN -';
-const TEXT_ROWS = [186, 199], AUTHOR_ROW = 212;
+const LINES = [                                                    // «Ley Multiversal #1»: the title in cool colours, then the law in gold
+  { s: 'Ley Multiversal #1:', at: 'title', top: 'C', bot: 'v' },
+  { s: 'Ama aquellos lugares que', at: 'line1', top: 'Y', bot: 'y' },
+  { s: 'sacan lo mejor de ti.', at: 'line2', top: 'Y', bot: 'y' },
+];
+const TEXT_ROWS = [182, 197, 210];
 
 // =================================================================== the scene's palette (the warm world, and the cool magic)
 const SP = {
@@ -282,23 +286,23 @@ const PF = {
   p: ['', '', '####.', '#...#', '#...#', '#...#', '####.', '#....', '#....'], r: ['', '', '#.##.', '##..#', '#....', '#....', '#....'], s: ['', '', '.####', '#....', '.###.', '....#', '####.'],
   u: ['', '', '#...#', '#...#', '#...#', '#..##', '.##.#'], 'ú': ['...#.', '..#..', '#...#', '#...#', '#...#', '#..##', '.##.#'],
   D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'], h: ['#....', '#....', '#.##.', '##..#', '#...#', '#...#', '#...#'],
-  z: ['', '', '#####', '...#.', '..#..', '.#...', '#####'], ',': ['', '', '', '', '', '..#..', '..#..', '.#...'], '.': ['', '', '', '', '', '.##..', '.##..'], ' ': [],
+  z: ['', '', '#####', '...#.', '..#..', '.#...', '#####'],
+  L: ['#....', '#....', '#....', '#....', '#....', '#....', '#####'], M: ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'], A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+  y: ['', '', '#...#', '#...#', '#...#', '#...#', '.####', '....#', '.###.'], t: ['.#...', '.#...', '####.', '.#...', '.#...', '.#..#', '..##.'], v: ['', '', '#...#', '#...#', '#...#', '.#.#.', '..#..'],
+  q: ['', '', '.####', '#...#', '#...#', '#...#', '.####', '....#', '....#'], g: ['', '', '.####', '#...#', '#...#', '#...#', '.####', '....#', '.###.'], j: ['...#.', '', '..##.', '...#.', '...#.', '...#.', '...#.', '#..#.', '.##..'],
+  '#': ['.#.#.', '.#.#.', '#####', '.#.#.', '#####', '.#.#.', '.#.#.'], '1': ['..#..', '.##..', '..#..', '..#..', '..#..', '..#..', '.###.'], ':': ['', '.##..', '.##..', '', '.##..', '.##..', ''], ',': ['', '', '', '', '', '..#..', '..#..', '.#...'], '.': ['', '', '', '', '', '.##..', '.##..'], ' ': [],
 };
 const adv = ch => ch === ' ' ? 3 : 6, lineW = s => [...s].reduce((w, ch) => w + adv(ch), 0) - 1;
 function words(t, a) {
   const P = FX, fill = (x, y, c) => { if (bay(x, y) < a) P.p(x, y, c); };
-  LINES.forEach((s, li) => {
-    const [t0, t1] = li ? T.line2 : T.line1, n = Math.floor(seg(t, t0, t1) * [...s].length + .001); if (n <= 0) return;
+  LINES.forEach(({ s, at, top, bot }, li) => {
+    const [t0, t1] = T[at], n = Math.floor(seg(t, t0, t1) * [...s].length + .001); if (n <= 0) return;
     const ch = [...s], x0 = Math.round(IW / 2 - lineW(s) / 2), y = TEXT_ROWS[li];
-    const pass = (dx, dy, col) => { let x = x0; for (let i = 0; i < n; i++) { const g = PF[ch[i]]; if (g) g.forEach((row, r) => [...row].forEach((b, k) => { if (b === '#') fill(x + k + dx, y + r + dy, col ?? (r < 4 ? 'Y' : 'y')); })); x += adv(ch[i]); } return x; };
+    const pass = (dx, dy, col) => { let x = x0; for (let i = 0; i < n; i++) { const g = PF[ch[i]]; if (g) g.forEach((row, r) => [...row].forEach((b, k) => { if (b === '#') fill(x + k + dx, y + r + dy, col ?? (r < 4 ? top : bot)); })); x += adv(ch[i]); } return x; };
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1], [0, 2], [1, 2]]) pass(dx, dy, 'q');
     const xe = pass(0, 0); if (n < ch.length && cyc(t * 6, 2)) for (let r = 0; r < 7; r++) fill(xe, y + r, 'C');     // the cursor
   });
-  const aa = seg(t, ...T.author) * a; if (aa > 0) {                // the author, smaller (3x5 capitals from pixel.js), lavender
-    const s = AUTHOR, w = s.length * 4 - 1, x0 = Math.round(IW / 2 - w / 2);
-    [...s].forEach((ch, i) => { const g = Pixel.FONT[ch]; if (!g) return; g.forEach((bits, r) => { for (let k = 0; k < 3; k++) if (bits & (4 >> k)) for (const [dx, dy, c] of [[-1, 0, 'q'], [1, 0, 'q'], [0, -1, 'q'], [0, 1, 'q'], [0, 0, 'v']]) if (bay(x0 + i * 4 + k, AUTHOR_ROW + r) < aa) P.p(x0 + i * 4 + k + dx, AUTHOR_ROW + r + dy, c); }); });
-    [...s].forEach((ch, i) => { const g = Pixel.FONT[ch]; if (g) g.forEach((bits, r) => { for (let k = 0; k < 3; k++) if (bits & (4 >> k) && bay(x0 + i * 4 + k, AUTHOR_ROW + r) < aa) P.p(x0 + i * 4 + k, AUTHOR_ROW + r, 'v'); }); });
-  }
+
 }
 
 // =================================================================== frame
@@ -338,8 +342,7 @@ function sfx(ac, out) {
   // the high note: a soft rising shimmer
   [1319, 1760, 2349, 3136, 3951].forEach((f, i) => tone(T.flash - .1 + i * .07, .9, f, f, .03)); { const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), v = ac.createGain(); s.buffer = nb; fl.type = 'highpass'; fl.frequency.value = 5000; v.gain.setValueAtTime(.0001, T.flash); v.gain.linearRampToValueAtTime(.05, T.flash + .2); v.gain.exponentialRampToValueAtTime(.0005, T.flash + 1.2); s.connect(fl).connect(v).connect(out); s.start(T.flash); s.stop(T.flash + 1.3); }
   // a soft click with each letter
-  LINES.forEach((s, li) => { const [t0, t1] = li ? T.line2 : T.line1, n = [...s].length; for (let i = 0; i < n; i++) if (s[i] !== ' ') tone(t0 + (i + 1) / n * (t1 - t0), .025, 1800 + (i % 3) * 150, 1500, .012, 'square'); });
-  for (let i = 0; i < AUTHOR.length; i += 3) tone(T.author[0] + i / AUTHOR.length * (T.author[1] - T.author[0]), .02, 1400, 1200, .008, 'square');
+  LINES.forEach(({ s, at }, li) => { const [t0, t1] = T[at], n = [...s].length; for (let i = 0; i < n; i++) if (s[i] !== ' ') tone(t0 + (i + 1) / n * (t1 - t0), .025, 1800 + (i % 3) * 150, 1500, .012, 'square'); });
 }
 function encodeWav(ab) {
   const ch = ab.numberOfChannels, sr = ab.sampleRate, n = ab.length, buf = new ArrayBuffer(44 + n * ch * 2), v = new DataView(buf), ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };

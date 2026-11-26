@@ -258,7 +258,7 @@ comparten la vista exterior y el vitral. El plano general del salón se encuadra
 ## Escena «La canción de Lyra» (`lyra.html`)
 
 Playa al atardecer, 15 s en bucle, 1080×1920, solo efectos de sonido. Lyra Sakuraen (la aventurera de pelo rosa) canta
-en la orilla; la frase de Hans Christian Andersen se escribe al ritmo del canto.
+en la orilla; «Ley Multiversal #1: Ama aquellos lugares que sacan lo mejor de ti» se escribe al ritmo del canto.
 
 - Capas (z): cielo ámbar con nubes doradas −30 · banda de nubes carbón con borde dorado −26 · mar −14 · sol y rayos
   crepusculares −12 (delante del mar para caer sobre él) · arena mojada con espuma −4 · Lyra 0. Órbita de ±5° de yaw.
