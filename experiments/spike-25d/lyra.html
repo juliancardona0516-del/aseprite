@@ -46,7 +46,7 @@ const LOOP = DURATION;                                             // everything
 const T = {
   idle: [0, 2], sing: [2, 8], high: [8, 11], sing2: [11, 13], calm: [13, 15],
   notes: [2.3, 12.2], noteEvery: .55, noteLife: 2.4,
-  title: [3.6, 4.8], line1: [5.0, 8.0], line2: [8.3, 10.8], textOut: [13.4, 14.8],
+  title: [3.6, 4.4], num: [4.4, 4.8], l1: [5.0, 6.4], l2: [6.5, 8.0], l3: [8.3, 9.8], l4: [9.9, 10.8], textOut: [13.4, 14.8],
   flash: 8.3, raysBoost: [8.0, 9.6],
 };
 const PITCH = 6, ORBIT = 5;                                        // degrees: a low camera; yaw = ORBIT * sin(2πt/15)
@@ -58,12 +58,12 @@ const LAYERS = {                                                   // depth z, a
 };
 const SUN = { x: 120, row: 176 };                                  // on screen: just under the dark band, above the horizon
 const HORIZON = 183;
-const LINES = [                                                    // «Ley Multiversal #1»: the title in cool colours, then the law in gold
-  { s: 'Ley Multiversal #1:', at: 'title', top: 'C', bot: 'v' },
-  { s: 'Ama aquellos lugares que', at: 'line1', top: 'Y', bot: 'y' },
-  { s: 'sacan lo mejor de ti.', at: 'line2', top: 'Y', bot: 'y' },
+const LINES = [                                                    // at the top, double size: the title in cool colours, then the law in gold
+  { s: 'Ley Multiversal', at: 'title', top: 'C', bot: 'v', row: 12 }, { s: '#1:', at: 'num', top: 'C', bot: 'v', row: 31 },
+  { s: 'Ama aquellos', at: 'l1', top: 'Y', bot: 'y', row: 56 }, { s: 'lugares que', at: 'l2', top: 'Y', bot: 'y', row: 75 },
+  { s: 'sacan lo mejor', at: 'l3', top: 'Y', bot: 'y', row: 94 }, { s: 'de ti.', at: 'l4', top: 'Y', bot: 'y', row: 113 },
 ];
-const TEXT_ROWS = [182, 197, 210];
+const TSC = 2;                                                     // text scale: each font pixel is 2x2
 
 // =================================================================== the scene's palette (the warm world, and the cool magic)
 const SP = {
@@ -292,15 +292,15 @@ const PF = {
   q: ['', '', '.####', '#...#', '#...#', '#...#', '.####', '....#', '....#'], g: ['', '', '.####', '#...#', '#...#', '#...#', '.####', '....#', '.###.'], j: ['...#.', '', '..##.', '...#.', '...#.', '...#.', '...#.', '#..#.', '.##..'],
   '#': ['.#.#.', '.#.#.', '#####', '.#.#.', '#####', '.#.#.', '.#.#.'], '1': ['..#..', '.##..', '..#..', '..#..', '..#..', '..#..', '.###.'], ':': ['', '.##..', '.##..', '', '.##..', '.##..', ''], ',': ['', '', '', '', '', '..#..', '..#..', '.#...'], '.': ['', '', '', '', '', '.##..', '.##..'], ' ': [],
 };
-const adv = ch => ch === ' ' ? 3 : 6, lineW = s => [...s].reduce((w, ch) => w + adv(ch), 0) - 1;
+const adv = ch => (ch === ' ' ? 3 : 6) * TSC, lineW = s => [...s].reduce((w, ch) => w + adv(ch), 0) - TSC;
 function words(t, a) {
   const P = FX, fill = (x, y, c) => { if (bay(x, y) < a) P.p(x, y, c); };
-  LINES.forEach(({ s, at, top, bot }, li) => {
+  LINES.forEach(({ s, at, top, bot, row }, li) => {
     const [t0, t1] = T[at], n = Math.floor(seg(t, t0, t1) * [...s].length + .001); if (n <= 0) return;
-    const ch = [...s], x0 = Math.round(IW / 2 - lineW(s) / 2), y = TEXT_ROWS[li];
-    const pass = (dx, dy, col) => { let x = x0; for (let i = 0; i < n; i++) { const g = PF[ch[i]]; if (g) g.forEach((row, r) => [...row].forEach((b, k) => { if (b === '#') fill(x + k + dx, y + r + dy, col ?? (r < 4 ? top : bot)); })); x += adv(ch[i]); } return x; };
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1], [0, 2], [1, 2]]) pass(dx, dy, 'q');
-    const xe = pass(0, 0); if (n < ch.length && cyc(t * 6, 2)) for (let r = 0; r < 7; r++) fill(xe, y + r, 'C');     // the cursor
+    const ch = [...s], x0 = Math.round(IW / 2 - lineW(s) / 2), y = row;
+    const pass = (dx, dy, col) => { let x = x0; for (let i = 0; i < n; i++) { const g = PF[ch[i]]; if (g) g.forEach((row, r) => [...row].forEach((b, k) => { if (b === '#') for (let v = 0; v < TSC * TSC; v++) fill(x + k * TSC + (v % TSC) + dx, y + r * TSC + ((v / TSC) | 0) + dy, col ?? (r < 4 ? top : bot)); })); x += adv(ch[i]); } return x; };
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1], [0, 2], [1, 2], [2, 2]]) pass(dx, dy, 'q');
+    const xe = pass(0, 0); if (n < ch.length && cyc(t * 6, 2)) for (let r = 0; r < 7 * TSC; r++) { fill(xe, y + r, 'C'); fill(xe + 1, y + r, 'C'); }     // the cursor
   });
 
 }
