@@ -254,3 +254,18 @@ negro con garras, armadura con púas y hacha) en su castillo negro. 24 s, 1080×
 Dos mundos three.js (exterior / salón) con la misma cámara ortográfica; el cielo se dibuja una vez por cuadro y lo
 comparten la vista exterior y el vitral. El plano general del salón se encuadra más cerca sin romper la rejilla: se renderiza a
 135×240 y se escala ×8 (en vez de 180×320 ×6), así 1 texel sigue siendo 1 píxel. Exportar: `node capture.cjs --page throne.html --out out/throne.mp4`
+
+## Escena «La canción de Lyra» (`lyra.html`)
+
+Playa al atardecer, 15 s en bucle, 1080×1920, solo efectos de sonido. Lyra Sakuraen (la aventurera de pelo rosa) canta
+en la orilla; la frase de Hans Christian Andersen se escribe al ritmo del canto.
+
+- Capas (z): cielo ámbar con nubes doradas −30 · banda de nubes carbón con borde dorado −26 · mar −14 · sol y rayos
+  crepusculares −12 (delante del mar para caer sobre él) · arena mojada con espuma −4 · Lyra 0. Órbita de ±5° de yaw.
+- Lyra es su sprite canónico de `pixel-quest/journey.js`; las poses nuevas (mano en el pecho cantando, brazos abiertos,
+  respiración) se añaden con un gancho como en `dance.js`, y el viento mueve su pelo y el bajo del vestido (4 cuadros).
+- La magia va en tonos fríos sobre el fondo cálido: aura rosa/cian, notas que se deshacen en chispas, motas que suben de
+  la arena, destello radial en la nota alta (8.3 s) con los rayos al máximo.
+- Todo lo periódico (olas y espuma cada 5 s, nubes, cámara, viento) cierra ciclos enteros en 15 s: el final enlaza con el inicio.
+
+Exportar: `node capture.cjs --page lyra.html --out out/lyra-song.mp4`

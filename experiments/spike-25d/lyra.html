@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Canción de Lyra</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  ESCENA "LA CANCIÓN DE LYRA" del spike 2.5D (Pixel Quest Adventure), 15 s en bucle. Aislada: no toca las otras escenas,
+  Aseprite ni Pixelbolt. Una playa al atardecer (cielo ámbar, banda de nubes carbón, rayos de sol sobre el mar, arena
+  mojada que refleja el cielo); Lyra canta en la orilla; notas, motas y un aura en tonos fríos; la frase de Andersen se
+  escribe al ritmo del canto. Lyra es su sprite canónico (journey.js, la "healer"): las poses nuevas se añaden con un
+  gancho, como hizo dance.js, sin redibujarla. Lo del spike: capas billboard a distinta profundidad, órbita lenta de
+  cámara (parallax), cámara ortográfica ajustada a la rejilla, paleta cuantizada en shader, Bayer 4x4, 180x320 x6.
+-->
+<style>
+  html, body { margin: 0; background: #0f0b12; color: #d7dbe3; font: 13px/1.4 system-ui, sans-serif; }
+  #wrap { display: flex; gap: 16px; padding: 16px; align-items: flex-start; flex-wrap: wrap; }
+  #out { height: min(92vh, 960px); aspect-ratio: 9 / 16; image-rendering: pixelated; background: #000; display: block; }
+  #panel { background: #1f232c; border-radius: 8px; padding: 12px 14px; width: 300px; }
+  #panel h1 { font-size: 14px; margin: 0 0 8px; }
+  #panel label { display: grid; grid-template-columns: 70px 1fr 52px; gap: 6px; align-items: center; margin: 6px 0; }
+  #panel input[type=range] { width: 100%; }
+  #panel .val { color: #8b93a3; text-align: right; font-variant-numeric: tabular-nums; }
+  #panel p { color: #8b93a3; margin: 8px 0 0; }
+  body.render #panel { display: none; }
+  body.render #wrap { padding: 0; }
+  body.render #out { height: auto; width: 1080px; }
+</style>
+<script src="../pixel-quest/pixel.js"></script>
+<script src="../pixel-quest/journey.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" } }</script>
+</head><body>
+<div id="wrap">
+  <canvas id="out" width="1080" height="1920"></canvas>
+  <div id="panel">
+    <h1>Pixel Quest · la canción de Lyra</h1>
+    <label>Tiempo <input type="range" id="time" min="0" max="150" value="0"><span class="val" id="timeV"></span></label>
+    <p><button id="play">Pausa</button></p>
+    <p>Espacio: pausa · ←/→: ±0.1 s · <code>?render</code> oculta este panel.</p>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+
+// =================================================================== PLAN AS DATA
+const OUT_W = 1080, OUT_H = 1920, IW = 180, IH = 320, FPS = 30, PPU = 16, DURATION = 15;
+const LOOP = DURATION;                                             // everything periodic completes whole cycles in 15 s
+const T = {
+  idle: [0, 2], sing: [2, 8], high: [8, 11], sing2: [11, 13], calm: [13, 15],
+  notes: [2.3, 12.2], noteEvery: .55, noteLife: 2.4,
+  line1: [4.0, 8.0], line2: [8.3, 10.8], author: [11.0, 11.8], textOut: [13.4, 14.8],
+  flash: 8.3, raysBoost: [8.0, 9.6],
+};
+const PITCH = 6, ORBIT = 5;                                        // degrees: a low camera; yaw = ORBIT * sin(2πt/15)
+const LAYERS = {                                                   // depth z, and the screen row of each layer's bottom edge at yaw 0
+  sky:   { z: -30, bottom: 183 }, band: { z: -26, bottom: 173 }, rays: { z: -12, bottom: 262 },
+  sea:   { z: -14, bottom: 256 }, sand: { z: -4, bottom: 319 }, lyra: { z: 0, bottom: 292, x: 62 },
+  // the rays (and the sun they come from) sit just in front of the sea so they fall across it
+
+};
+const SUN = { x: 120, row: 176 };                                  // on screen: just under the dark band, above the horizon
+const HORIZON = 183;
+const LINES = ['Donde las palabras no alcanzan,', 'la música habla.'], AUTHOR = '- HANS CHRISTIAN ANDERSEN -';
+const TEXT_ROWS = [192, 205], AUTHOR_ROW = 220;
+
+// =================================================================== the scene's palette (the warm world, and the cool magic)
+const SP = {
+  q: '#0f0b12', k: '#1d1520', K: '#2e2128', b: '#45302e', B: '#6a3f2a', o: '#94522a', O: '#c26c2c',
+  a: '#e48f33', A: '#f5b347', y: '#ffd673', Y: '#fff0bf', w: '#ffffff',
+  p: '#ff8fc0', P: '#c9508a', c: '#6ff2ff', C: '#bff8ff', v: '#b9a2ff', V: '#7a64c8', s: '#2a1c22', S: '#5a3a36',
+};
+const SPK = Object.keys(SP), SI = Object.fromEntries(SPK.map((k, i) => [k, i]));
+const toU32 = hex => { const n = parseInt(hex.slice(1), 16); return (0xff << 24) | ((n & 255) << 16) | (((n >> 8) & 255) << 8) | (n >> 16); };
+const LUT = new Uint32Array(SPK.map(k => toU32(SP[k])));
+const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16), bay = (x, y) => B4[(y & 3) * 4 + (x & 3)];
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x)), lerp = (a, b, p) => a + (b - a) * p, seg = (t, a, b) => clamp((t - a) / (b - a));
+const ease = p => -(Math.cos(Math.PI * p) - 1) / 2, cyc = (x, n) => ((Math.floor(x) % n) + n) % n, TAU = Math.PI * 2, rad = d => d * Math.PI / 180;
+const per = (t, period) => TAU * t / period;                         // a phase that comes back to the start every `period` seconds
+function hsh(x, y, s) { let h = (x * 374761393 + y * 668265263 + s * 982451653) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function vn(x, y, s = 0) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf); const a = hsh(xi, yi, s), b = hsh(xi + 1, yi, s), c = hsh(xi, yi + 1, s), d = hsh(xi + 1, yi + 1, s); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+
+class Pix {                                                        // indexed buffer in the scene palette -> canvas texture
+  constructor(w, h) { Object.assign(this, { w, h, d: new Uint8Array(w * h).fill(255) }); this.c = document.createElement('canvas'); this.c.width = w; this.c.height = h; this.x = this.c.getContext('2d', { willReadFrequently: true }); this.img = this.x.createImageData(w, h); this.u = new Uint32Array(this.img.data.buffer); }
+  clear() { this.d.fill(255); return this; }
+  p(x, y, c) { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; this.d[y * this.w + x] = typeof c === 'string' ? SI[c] : c; }
+  r(x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.p(x + i, y + j, c); }
+  flush() { for (let i = 0; i < this.d.length; i++) this.u[i] = this.d[i] === 255 ? 0 : LUT[this.d[i]]; this.x.putImageData(this.img, 0, 0); if (this.tex) this.tex.needsUpdate = true; return this; }
+  texture() { if (!this.tex) { this.flush(); const t = new THREE.CanvasTexture(this.c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; this.tex = t; } return this.tex; }
+}
+
+// =================================================================== LYRA: her canonical sprite (journey.js), new poses through a hook
+// sing = hand on her chest + mouth (frame 0 shut, 1 open); high = arms open to the sky (her own dance arms) + mouth open;
+// the wind ripples her hair (through the sway her design already has) and the hem of her dress; idle breathes (2 frames).
+const LY = {};
+{
+  const K = KINDS.healer, front0 = K.front, back0 = K.back; let WIND = 0;
+  K.back = g => back0({ ...g, sway: WIND });
+  K.front = g => {
+    front0(g); const { P, R, X, torY, hy, pose, frame } = g;
+    if (pose === 'sing' || pose === 'high') { if (pose === 'high' || frame % 2) { R(X, hy + 8, 2, 2, 30); P(X + 1, hy + 9, 37); } }
+    if (pose === 'sing') { R(X - 1, torY + 1, 3, 3, 7); R(X, torY + 3, 4, 2, 7); R(X + 3, torY + 2, 2, 2, 28); }
+    if (pose === 'high') { R(X + 4, torY, 3, 3, 7); R(X + 6, torY - 4, 3, 5, 7); R(X + 7, torY - 7, 3, 3, 28); R(X - 6, torY, 3, 3, 7); R(X - 8, torY - 4, 3, 5, 7); R(X - 9, torY - 7, 3, 3, 28); }
+  };
+  const hem = (L, dx) => { if (!dx) return L; const o = { w: L.w, h: L.h, d: new Uint8Array(L.d) }; for (let y = SFY - 3; y < SFY; y++) for (let x = 0; x < L.w; x++) { const sx = x - dx; o.d[y * L.w + x] = sx >= 0 && sx < L.w ? L.d[y * L.w + sx] : 255; } return o; };
+  const breathe = L => { const o = { w: L.w, h: L.h, d: new Uint8Array(L.d) }, top = SFY - 8; for (let y = 0; y < top; y++) for (let x = 0; x < L.w; x++) o.d[y * L.w + x] = L.d[(y + 1) * L.w + x]; return o; };
+  const WINDS = [0, -1, -2, -1];                                   // 4 wind frames
+  const build = (pose, frame) => WINDS.map(w => { WIND = w; if (pose !== 'stand') K.customArm = true; const L = mkTraveler('healer', frame, pose); K.customArm = false; return hem(L, w < -1 ? -1 : w); });
+  LY.idle0 = build('stand', 0); LY.idle1 = LY.idle0.map(breathe);
+  LY.sing0 = build('sing', 0); LY.sing1 = build('sing', 1); LY.high = build('high', 1);
+}
+function layerTexture(L) {                                          // an indexed journey.js layer -> a nearest-filtered texture (journey palette)
+  const c = document.createElement('canvas'); c.width = L.w; c.height = L.h; const x = c.getContext('2d'), img = x.createImageData(L.w, L.h);
+  for (let i = 0; i < L.d.length; i++) { const v = L.d[i]; if (v === 255) continue; const n = parseInt(PALETTE[v].slice(1), 16); img.data.set([n >> 16, (n >> 8) & 255, n & 255, 255], i * 4); }
+  x.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const LYT = Object.fromEntries(Object.entries(LY).map(([k, v]) => [k, v.map(layerTexture)]));
+
+// =================================================================== the layers, drawn every frame (all periodic in 15 s)
+const SKY = new Pix(300, 184), BAND = new Pix(300, 66), RAYS = new Pix(250, 100), SEA = new Pix(240, 74), SAND = new Pix(200, 66);
+function drawSky(t) {                                              // amber gradient; golden clouds drifting very slowly: gold-lit tops, amber bodies, ochre undersides
+  const P = SKY, W = P.w, H = P.h, drift = 4 * Math.sin(per(t, LOOP));
+  const ramp = ['b', 'B', 'o', 'O', 'a', 'A'];
+  const cl = (x, y) => { const band = Math.exp(-(((y - 74) / 40) ** 2)); return (vn((x + drift) * .045, y * .11, 3) * .6 + vn((x - drift * .5) * .11, y * .22, 4) * .4) * (.4 + .8 * band); };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const g = y / H * 5.4; let c = ramp[clamp(Math.floor(g + bay(x, y) * .9 - .3), 0, 5)];
+    if (y < 128) { const n = cl(x, y), th = .56 + bay(x, y) * .04;
+      if (n > th) { const above = cl(x, y - 2), below = cl(x, y + 3); c = above < th ? (above < th - .05 ? 'Y' : 'y') : below < th ? 'O' : n > th + .1 ? 'A' : 'a'; } }
+    P.d[y * W + x] = SI[c];
+  }
+  P.flush();
+}
+function drawBand(t) {                                             // the wide charcoal cloud band, its lower edge lit gold
+  const P = BAND, W = P.w, H = P.h, drift = 3 * Math.sin(per(t, LOOP) + 1);
+  P.clear();
+  for (let x = 0; x < W; x++) {
+    const top = 6 + vn((x + drift) * .05, 0, 11) * 16, bot = H - 6 - vn((x - drift) * .06, 1, 12) * 12 - Math.max(0, 14 - Math.abs(x - W / 2 - (SUN.x - IW / 2)) * .5);   // thinner above the sun
+    for (let y = Math.round(top); y <= bot; y++) { const n = vn(x * .1, y * .14, 13); P.p(x, y, y > bot - 1.5 ? 'A' : y > bot - 3 ? (bay(x, y) < .5 ? 'O' : 'K') : n > .62 ? 'K' : n > .4 ? 'k' : 'q'); }
+    if (bay(x, Math.round(top)) < .5) P.p(x, Math.round(top), 'K');
+  }
+  P.flush();
+}
+function drawRays(t, boost) {                                      // the sun just under the band, and crepuscular rays fanning down over the sea, breathing
+  const P = RAYS, W = P.w, H = P.h, sx = W / 2 + (SUN.x - IW / 2), sy = H - 1 - (LAYERS.rays.bottom - SUN.row);
+  P.clear();
+  const RAY = [[-1.15, .06], [-.85, .05], [-.58, .07], [-.33, .05], [-.1, .06], [.14, .05], [.4, .07], [.66, .05], [.94, .06], [1.2, .05]];
+  for (let y = sy; y < H; y++) for (let x = 0; x < W; x++) {
+    const a = Math.atan2(x - sx, y - sy), dist = Math.hypot(x - sx, y - sy) / 110; let v = 0;
+    RAY.forEach(([c, w], i) => { const d = Math.abs(a - c); if (d < w) v = Math.max(v, (1 - d / w) * (.6 + .4 * Math.sin(per(t, 5) + i * 1.7))); });
+    v *= Math.max(0, 1 - dist) * (.55 + .45 * boost) * 1.25;
+    if (v > bay(x, y) + .08) P.p(x, y, v > .62 ? 'Y' : 'y');
+  }
+  for (let y = -12; y <= 12; y++) for (let x = -12; x <= 12; x++) { const d = Math.hypot(x, y), X = Math.round(sx + x), Y = sy + y; if (d <= 5) P.p(X, Y, 'w'); else if (d <= 7) P.p(X, Y, 'Y'); else if (d <= 12 && bay(X, Y) < (12 - d) / 6 * (1 + boost * .5)) P.p(X, Y, 'y'); }
+  P.flush();
+}
+function drawSea(t) {                                              // dark sea with 4 wave bands moving in, a golden column under the sun, glints
+  const P = SEA, W = P.w, H = P.h, cx = W / 2 + (SUN.x - IW / 2);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const depth = y / H, col = Math.exp(-(((x - cx) / (8 + depth * 26)) ** 2));
+    let c = depth < .08 ? (bay(x, y) < .5 ? 'o' : 'S') : col * (1 - depth * .4) > .45 + bay(x, y) * .3 ? 'a' : col > .15 + bay(x, y) * .2 ? 'B' : depth > .6 ? 's' : 'S';
+    const wv = (y + 0 - 4 * t * (1 + depth)) ;                       // bands travel towards the shore
+    const band = ((y * (1 + depth * .5) - t * 4 + 1000) % 18), crest = band < 1.2 + depth * 1.5 && vn(x * .08, y * .2 + Math.floor((y - t * 4) / 18), 21) > .35;
+    if (crest) c = col > .3 ? 'Y' : 'O';
+    if (hsh(x, y, Math.floor(t * 6) % 90) > (col > .2 ? .93 : .992) && depth > .05) c = 'Y';   // intermittent glints
+    P.d[y * W + x] = SI[c];
+  }
+  for (let x = 0; x < W; x++) P.p(x, 0, Math.abs(x - cx) < 14 ? 'y' : 'O');                        // the horizon line
+  P.flush();
+}
+function foamRow(t) { return 14 + 10 * Math.sin(per(t, 5)); }       // the wash comes in and goes out every 5 s
+function drawSand(t) {                                             // wet sand mirroring the sky, the wash and its foam
+  const P = SAND, W = P.w, H = P.h, cx = W / 2 + (SUN.x - IW / 2), f = foamRow(t);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const v = y / H, col = Math.exp(-(((x - cx) / (5 + v * 14)) ** 2)), refl = ['k', 'K', 'b', 'B', 'o'][clamp(Math.floor((1 - v) * 4.6 + bay(x, y) * .8 - .3), 0, 4)];
+    let c = col > .55 + bay(x, y) * .4 ? (v < .4 ? 'a' : 'O') : refl;
+    if (y < f) c = col > .3 ? 'y' : (bay(x, y) < .4 ? 'O' : c);                                // the thin sheet of water
+    const edge = f + Math.sin(x * .19 + per(t, 5)) * 1.5 + vn(x * .2, t, 31) * 2;
+    if (Math.abs(y - edge) < 1.3) c = 'Y'; else if (Math.abs(y - edge) < 2.5 && bay(x, y) < .5) c = 'w';
+    if (y > f + 3 && hsh(x >> 1, y >> 1, 33) > .96) c = 'b';
+    P.d[y * W + x] = SI[c];
+  }
+  P.flush();
+}
+
+// =================================================================== three.js: ortho camera, billboards, palette pass
+const gl = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true, alpha: false });
+gl.setPixelRatio(1); gl.setSize(IW, IH, false);
+const out = document.getElementById('out'), octx = out.getContext('2d');
+const scene = new THREE.Scene(); scene.background = new THREE.Color(SP.q);
+const camera = new THREE.OrthographicCamera(-IW / PPU / 2, IW / PPU / 2, IH / PPU / 2, -IH / PPU / 2, .1, 400);
+const rt = new THREE.WebGLRenderTarget(IW, IH, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, generateMipmaps: false });
+const ALLCOL = [...SPK.map(k => SP[k]), ...PALETTE], PALN = ALLCOL.length, v3 = h => { const n = parseInt(h.slice(1), 16); return new THREE.Vector3((n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); };
+const post = new THREE.ShaderMaterial({
+  uniforms: { tA: { value: rt.texture }, pal: { value: ALLCOL.map(v3) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+  fragmentShader: `uniform sampler2D tA; uniform vec3 pal[${PALN}]; varying vec2 vUv;
+    vec3 toSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(.0031308, c)); }
+    void main(){ vec3 c = toSRGB(texture2D(tA, vUv).rgb); float best = 1e9; vec3 bc = c;
+      for (int i = 0; i < ${PALN}; i++) { vec3 d = c - pal[i]; float e = dot(d * d, vec3(.3, .59, .11)); if (e < best) { best = e; bc = pal[i]; } }
+      gl_FragColor = vec4(bc, 1.); }`,
+  depthTest: false, depthWrite: false,
+});
+const postScene = new THREE.Scene(), postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
+const TARGET = new THREE.Vector3(0, 6, 0), P_ = rad(PITCH);
+const SPRITES = [];
+function billboard(tex, w, h, ax, ay, L) {                          // a quad facing the camera; (ax, ay) = its anchor texel; placed so that, at yaw 0,
+  const geo = new THREE.PlaneGeometry(w / PPU, h / PPU); geo.translate((w / 2 - (ax + .5)) / PPU, (h / 2 - (h - 1 - ay)) / PPU, 0);   // the anchor lands on screen row L.bottom
+  const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: .5, side: THREE.DoubleSide, depthWrite: false });
+  const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; scene.add(mesh);
+  const u = (IH / 2 - L.bottom) / PPU, y = TARGET.y + (u + L.z * Math.sin(P_)) / Math.cos(P_), x = ((L.x ?? IW / 2) - IW / 2) / PPU;
+  mesh.position.set(x, y, L.z); mesh.renderOrder = 100 + L.z; const s = { mesh, mat }; SPRITES.push(s); return s;
+}
+billboard(SKY.texture(), SKY.w, SKY.h, SKY.w >> 1, SKY.h - 1, LAYERS.sky);
+billboard(BAND.texture(), BAND.w, BAND.h, BAND.w >> 1, BAND.h - 1, LAYERS.band);
+billboard(SEA.texture(), SEA.w, SEA.h, SEA.w >> 1, SEA.h - 1, LAYERS.sea);
+billboard(RAYS.texture(), RAYS.w, RAYS.h, RAYS.w >> 1, RAYS.h - 1, LAYERS.rays);
+billboard(SAND.texture(), SAND.w, SAND.h, SAND.w >> 1, SAND.h - 1, LAYERS.sand);
+const lyra = billboard(LYT.idle0[0], 46, 56, SX, SFY, LAYERS.lyra);
+
+// =================================================================== the story at time t
+function story(t) {
+  const S = { t, wind: cyc(t * 4, 4) };
+  S.yaw = ORBIT * Math.sin(per(t, LOOP));
+  if (t >= T.high[0] && t < T.high[1]) S.pose = 'high';
+  else if ((t >= T.sing[0] && t < T.sing[1]) || (t >= T.sing2[0] && t < T.sing2[1])) S.pose = cyc(t * 3.6, 2) ? 'sing1' : 'sing0';   // the mouth moves with the syllables
+  else S.pose = cyc(t * .8, 2) ? 'idle1' : 'idle0';                                                                                         // slow breathing
+  S.boost = Math.sin(seg(t, ...T.raysBoost) * Math.PI);
+  S.magic = Math.max(.12, Math.min(seg(t, 2, 3.2), 1 - seg(t, 13, 14.6)) * (1 + .5 * S.boost));                                           // aura and motes; .12 at the loop's ends
+  S.textA = 1 - seg(t, ...T.textOut);
+  return S;
+}
+
+// =================================================================== the magic and the words: drawn at 180x320 over the frame, in cool colours
+const FX = new Pix(IW, IH);
+const MOUTH = { x: LAYERS.lyra.x + 1, y: LAYERS.lyra.bottom - (SFY - 36) };   // screen position of her mouth (journey.js head geometry)
+const NOTE_GLYPHS = [['..##', '..#.', '..#.', '..#.', '###.', '###.'], ['.####', '.#..#', '.#..#', '.#..#', '##.##', '##.##'], ['..#.', '..##', '..#.#', '..#..', '###.', '###.']];
+function notes(t) {
+  const P = FX;
+  for (let k = 0, t0 = T.notes[0]; t0 <= T.notes[1]; k++, t0 += T.noteEvery) {
+    const lt = t - t0 - (hsh(k, 1, 41) - .5) * .2; if (lt < 0 || lt > T.noteLife) continue;
+    const p = lt / T.noteLife, x = MOUTH.x + 4 + p * (70 + hsh(k, 2, 41) * 40) + Math.sin(lt * 3 + k) * 4, y = MOUTH.y - 4 - p * (40 + hsh(k, 3, 41) * 30) + Math.sin(lt * 2 + k) * 2;
+    const col = ['p', 'c', 'v'][k % 3];
+    if (p < .78) { const G = NOTE_GLYPHS[k % 3], put = (dx, dy, c) => G.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === '#') P.p(x + i + dx, y + j + dy, c); })); for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) put(dx, dy, 'q'); put(0, 0, col); }
+    else { const q = (p - .78) / .22; for (let s = 0; s < 6; s++) { const a = s * TAU / 6 + k, r = 2 + q * 7; if (bay(s, k) > q * .9) P.p(x + 1 + Math.cos(a) * r, y + 2 + Math.sin(a) * r, s % 2 ? 'w' : col); } }   // into sparks
+  }
+}
+function motes(t, a) {                                             // pink and cyan specks of light rising from the sand (periodic: 5 s and 7.5 s)
+  for (let i = 0; i < 22; i++) {
+    const period = i % 2 ? 5 : 7.5, p = ((t / period + hsh(i, 1, 51)) % 1), x = 10 + hsh(i, 2, 51) * 160 + Math.sin(per(t, period) + i) * 5, y = 312 - p * (70 + hsh(i, 3, 51) * 50);
+    const vis = Math.sin(p * Math.PI) * a; if (vis < bay(i, i * 3) * .9) continue;
+    FX.p(x, y, i % 3 === 0 ? 'c' : i % 3 === 1 ? 'p' : 'v'); if (cyc(t * 6 + i, 3) === 0) { FX.p(x + 1, y, 'w'); FX.p(x, y - 1, 'C'); }
+  }
+}
+function aura(t, a, burst) {                                       // a faint pink/cyan halo around her; a soft radial flash on the high note
+  const cx = LAYERS.lyra.x, cy = LAYERS.lyra.bottom - 22, pulse = .5 + .5 * Math.sin(per(t, 2.5));
+  for (let y = -30; y <= 30; y++) for (let x = -20; x <= 20; x++) {
+    const d = Math.hypot(x / 20, y / 30); if (d > 1 || d < .38) continue;
+    const X = cx + x, Y = cy + y, v = Math.sin((d - .38) / .62 * Math.PI) * a * (.55 + .25 * pulse);
+    if (v > bay(X, Y) * 1.6 + .12) FX.p(X, Y, ((X >> 1) + (Y >> 1)) % 3 === 0 ? 'c' : ((X + Y) & 2 ? 'p' : 'v'));
+  }
+  if (burst > 0) { const r = 10 + (1 - burst) * 90; for (let k = 0; k < 64; k++) { const ang = k * TAU / 64, X = cx + Math.cos(ang) * r, Y = cy - 10 + Math.sin(ang) * r * 1.1; if (bay(k, Math.round(r)) < burst) FX.p(X, Y, k % 2 ? 'C' : 'v'); }
+    for (let k = 0; k < 12; k++) { const ang = k * TAU / 12, r2 = 8 + (1 - burst) * 30; FX.p(cx + Math.cos(ang) * r2, cy - 14 + Math.sin(ang) * r2, 'w'); } }
+}
+// ---- the words: 5x7 lowercase with accents (from aurora.html) + D h z ú; spaces are narrow so line 1 fits the 180 px width
+const PF = {
+  a: ['', '', '.###.', '....#', '.####', '#...#', '.####'], b: ['#....', '#....', '#.##.', '##..#', '#...#', '#...#', '####.'],
+  c: ['', '', '.###.', '#...#', '#....', '#...#', '.###.'], d: ['....#', '....#', '.##.#', '#..##', '#...#', '#...#', '.####'], e: ['', '', '.###.', '#...#', '#####', '#....', '.###.'],
+  i: ['..#..', '', '.##..', '..#..', '..#..', '..#..', '.###.'], l: ['.##..', '..#..', '..#..', '..#..', '..#..', '..#..', '.###.'],
+  m: ['', '', '##.#.', '#.#.#', '#.#.#', '#.#.#', '#.#.#'], n: ['', '', '#.##.', '##..#', '#...#', '#...#', '#...#'], o: ['', '', '.###.', '#...#', '#...#', '#...#', '.###.'],
+  p: ['', '', '####.', '#...#', '#...#', '#...#', '####.', '#....', '#....'], r: ['', '', '#.##.', '##..#', '#....', '#....', '#....'], s: ['', '', '.####', '#....', '.###.', '....#', '####.'],
+  u: ['', '', '#...#', '#...#', '#...#', '#..##', '.##.#'], 'ú': ['...#.', '..#..', '#...#', '#...#', '#...#', '#..##', '.##.#'],
+  D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'], h: ['#....', '#....', '#.##.', '##..#', '#...#', '#...#', '#...#'],
+  z: ['', '', '#####', '...#.', '..#..', '.#...', '#####'], ',': ['', '', '', '', '', '..#..', '..#..', '.#...'], '.': ['', '', '', '', '', '.##..', '.##..'], ' ': [],
+};
+const adv = ch => ch === ' ' ? 3 : 6, lineW = s => [...s].reduce((w, ch) => w + adv(ch), 0) - 1;
+function words(t, a) {
+  const P = FX, fill = (x, y, c) => { if (bay(x, y) < a) P.p(x, y, c); };
+  LINES.forEach((s, li) => {
+    const [t0, t1] = li ? T.line2 : T.line1, n = Math.floor(seg(t, t0, t1) * [...s].length + .001); if (n <= 0) return;
+    const ch = [...s], x0 = Math.round(IW / 2 - lineW(s) / 2), y = TEXT_ROWS[li];
+    const pass = (dx, dy, col) => { let x = x0; for (let i = 0; i < n; i++) { const g = PF[ch[i]]; if (g) g.forEach((row, r) => [...row].forEach((b, k) => { if (b === '#') fill(x + k + dx, y + r + dy, col ?? (r < 4 ? 'Y' : 'y')); })); x += adv(ch[i]); } return x; };
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1], [0, 2], [1, 2]]) pass(dx, dy, 'q');
+    const xe = pass(0, 0); if (n < ch.length && cyc(t * 6, 2)) for (let r = 0; r < 7; r++) fill(xe, y + r, 'C');     // the cursor
+  });
+  const aa = seg(t, ...T.author) * a; if (aa > 0) {                // the author, smaller (3x5 capitals from pixel.js), lavender
+    const s = AUTHOR, w = s.length * 4 - 1, x0 = Math.round(IW / 2 - w / 2);
+    [...s].forEach((ch, i) => { const g = Pixel.FONT[ch]; if (!g) return; g.forEach((bits, r) => { for (let k = 0; k < 3; k++) if (bits & (4 >> k)) for (const [dx, dy, c] of [[-1, 0, 'q'], [1, 0, 'q'], [0, -1, 'q'], [0, 1, 'q'], [0, 0, 'v']]) if (bay(x0 + i * 4 + k, AUTHOR_ROW + r) < aa) P.p(x0 + i * 4 + k + dx, AUTHOR_ROW + r + dy, c); }); });
+    [...s].forEach((ch, i) => { const g = Pixel.FONT[ch]; if (g) g.forEach((bits, r) => { for (let k = 0; k < 3; k++) if (bits & (4 >> k) && bay(x0 + i * 4 + k, AUTHOR_ROW + r) < aa) P.p(x0 + i * 4 + k, AUTHOR_ROW + r, 'v'); }); });
+  }
+}
+
+// =================================================================== frame
+function draw(t) {
+  t = ((t % LOOP) + LOOP) % LOOP;
+  const S = story(t), yaw = rad(S.yaw);
+  drawSky(t); drawBand(t); drawRays(t, S.boost); drawSea(t); drawSand(t);
+  lyra.mat.map = LYT[S.pose][S.wind];
+  for (const s of SPRITES) s.mesh.rotation.set(-P_, yaw, 0, 'YXZ');
+  const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(P_), Math.sin(P_), Math.cos(yaw) * Math.cos(P_));
+  camera.position.copy(TARGET).addScaledVector(dir, 100); camera.lookAt(TARGET); camera.updateMatrixWorld();
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1), fwd = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2), px = 1 / PPU;
+  const cr = camera.position.dot(right), cu = camera.position.dot(up), cf = camera.position.dot(fwd);
+  camera.position.copy(right.multiplyScalar(Math.round(cr / px) * px)).add(up.multiplyScalar(Math.round(cu / px) * px)).add(fwd.multiplyScalar(cf)); camera.updateMatrixWorld();
+  gl.setRenderTarget(rt); gl.render(scene, camera); gl.setRenderTarget(null); gl.render(postScene, postCam);
+  octx.imageSmoothingEnabled = false; octx.drawImage(gl.domElement, 0, 0, IW, IH, 0, 0, OUT_W, OUT_H);
+  FX.clear(); const burst = 1 - seg(t, T.flash, T.flash + .9); aura(t, S.magic, t >= T.flash ? burst : 0); motes(t, S.magic); notes(t); words(t, S.textA); FX.flush();
+  octx.drawImage(FX.c, 0, 0, IW, IH, 0, 0, OUT_W, OUT_H);
+  return S;
+}
+
+// =================================================================== sound effects (8-bit, soft; no music)
+function noteTimes() { const o = []; for (let k = 0, t0 = T.notes[0]; t0 <= T.notes[1]; k++, t0 += T.noteEvery) o.push([k, t0 + (hsh(k, 1, 41) - .5) * .2]); return o; }
+function sfx(ac, out) {
+  let a = 53; const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = r() * 2 - 1;
+  const tone = (t, dur, f0, f1, g, type = 'triangle') => { const o = ac.createOscillator(), v = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur); v.gain.setValueAtTime(.0001, t); v.gain.linearRampToValueAtTime(g, t + .01); v.gain.exponentialRampToValueAtTime(.0005, t + dur); o.connect(v).connect(out); o.start(t); o.stop(t + dur + .05); };
+  // the sea: filtered noise swelling with the wash (5 s, so it loops), and a softer far surf
+  for (const [f, q, g0, ph] of [[700, .6, .12, 0], [2400, .5, .03, 1.3]]) {
+    const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), v = ac.createGain(); s.buffer = nb; s.loop = true; fl.type = 'bandpass'; fl.frequency.value = f; fl.Q.value = q;
+    const steps = 150; v.gain.setValueAtTime(g0 * .3, 0); for (let i = 1; i <= steps; i++) { const t = i / steps * DURATION; v.gain.linearRampToValueAtTime(g0 * (.25 + .75 * Math.pow(.5 + .5 * Math.sin(TAU * t / 5 + ph), 2)), t); }
+    s.connect(fl).connect(v).connect(out); s.start(0); s.stop(DURATION);
+  }
+  // a small chime with each note (bright, pentatonic-free single bell tones, not a melody)
+  const BELL = [2093, 2349, 2637, 3136];
+  noteTimes().forEach(([k, t]) => { const f = BELL[k % 4]; tone(t, .5, f, f * .998, .03); tone(t, .35, f * 2.01, f * 2, .008, 'sine'); });
+  // the high note: a soft rising shimmer
+  [1319, 1760, 2349, 3136, 3951].forEach((f, i) => tone(T.flash - .1 + i * .07, .9, f, f, .03)); { const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), v = ac.createGain(); s.buffer = nb; fl.type = 'highpass'; fl.frequency.value = 5000; v.gain.setValueAtTime(.0001, T.flash); v.gain.linearRampToValueAtTime(.05, T.flash + .2); v.gain.exponentialRampToValueAtTime(.0005, T.flash + 1.2); s.connect(fl).connect(v).connect(out); s.start(T.flash); s.stop(T.flash + 1.3); }
+  // a soft click with each letter
+  LINES.forEach((s, li) => { const [t0, t1] = li ? T.line2 : T.line1, n = [...s].length; for (let i = 0; i < n; i++) if (s[i] !== ' ') tone(t0 + (i + 1) / n * (t1 - t0), .025, 1800 + (i % 3) * 150, 1500, .012, 'square'); });
+  for (let i = 0; i < AUTHOR.length; i += 3) tone(T.author[0] + i / AUTHOR.length * (T.author[1] - T.author[0]), .02, 1400, 1200, .008, 'square');
+}
+function encodeWav(ab) {
+  const ch = ab.numberOfChannels, sr = ab.sampleRate, n = ab.length, buf = new ArrayBuffer(44 + n * ch * 2), v = new DataView(buf), ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); ws(8, 'WAVE'); ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true); v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); ws(36, 'data'); v.setUint32(40, n * ch * 2, true);
+  const d = Array.from({ length: ch }, (_, c) => ab.getChannelData(c)); let o = 44; for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const x = Math.max(-1, Math.min(1, d[c][i])); v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7FFF, true); o += 2; }
+  const bytes = new Uint8Array(buf); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(bin);
+}
+window.__renderAudio = async () => { const sr = 48000, ac = new OfflineAudioContext(2, Math.ceil(sr * DURATION), sr), m = ac.createGain(), c = ac.createDynamicsCompressor(); m.gain.value = 1.4; c.threshold.value = -18; c.ratio.value = 3; m.connect(c).connect(ac.destination); sfx(ac, m); return encodeWav(await ac.startRendering()); };
+
+// =================================================================== boot
+const params = new URLSearchParams(location.search), RENDER = params.has('render');
+if (RENDER) document.body.classList.add('render');
+window.__meta = { W: OUT_W, H: OUT_H, FPS, DURATION };
+window.__draw = t => draw(t);
+window.__ready = true;
+if (RENDER) draw(+params.get('t') || 0);
+else {
+  const ui = id => document.getElementById(id); let playing = true, base = 0, t0 = performance.now();
+  const now = () => playing ? (base + (performance.now() - t0) / 1000) % DURATION : base, seek = s => { base = clamp(s, 0, DURATION - .001); t0 = performance.now(); };
+  ui('play').onclick = () => { base = now(); playing = !playing; t0 = performance.now(); ui('play').textContent = playing ? 'Pausa' : 'Reproducir'; };
+  ui('time').oninput = () => { seek(+ui('time').value / 10); if (playing) ui('play').click(); };
+  addEventListener('keydown', e => { if (e.code === 'Space') { ui('play').click(); e.preventDefault(); } if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') { if (playing) ui('play').click(); seek(base + (e.code === 'ArrowLeft' ? -.1 : .1)); } });
+  (function loop() { const t = now(); draw(t); ui('time').value = Math.round(t * 10); ui('timeV').textContent = t.toFixed(1) + ' s'; requestAnimationFrame(loop); })();
+}
+</script>
+</body></html>

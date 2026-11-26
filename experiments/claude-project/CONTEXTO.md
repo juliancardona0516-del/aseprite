@@ -20,7 +20,7 @@ trabajo de video vive aparte, en `experiments/` y `.claude/skills/`.
 |---|---|
 | **El caballero** | Armadura, el más sereno del grupo; aparece con el mago y con la aventurera |
 | **El mago** | Túnica y sombrero; protagonista de la escena de la luna y los recuerdos |
-| **La aventurera de pelo rosa** | Bailarina; aparece bailando en el bosque de bambú |
+| **Lyra Sakuraen (la aventurera de pelo rosa)** | Pelo rosa, vestido blanco, cinturón dorado, gema cian; bailarina y cantante (el bambú, la playa) |
 | **El héroe de pelo rojo** | Armadura azul y espada esmeralda; pescador (el pez gigante), se mira en la cascada |
 | **El arquero rubio** | Pelo rubio con coleta, oreja de elfo, capa verde, carcaj; la escena de la ventana y las auroras |
 | **El rōnin** | Pelo azul, sombrero de paja cónico (kasa), kimono blanco con nubes doradas, faja roja, hakama oscuro, espada roja; lleva el colgante azul que le regaló su madre. De niño: pelo azul alborotado, el mismo kimono blanco con faja roja |
@@ -53,11 +53,12 @@ Los cinco aventureros juntos son "el grupo" (escena de la fogata y la tortuga, e
 | 13 | El trono | Castillo negro bajo luna roja, zoom a la ventana del trono; el demonio ruge y ordena a los orcos azules destruir la aldea; la aldea arde | Solo SFX |
 | 14 | El colgante | Flashback del rōnin: de niño en un patio de Kioto lleno de cerezos, su madre en kimono le canta y le regala un colgante azul en forma de rombo; en el presente el colgante brilla en su mano | «Recordar es fácil para el que tiene memoria, olvidar es difícil para el que tiene corazón» — Gabriel García Márquez |
 | 15 | El reino (1.ª parte) | Castillo japonés en la montaña (según una pintura de referencia del autor) atacado por orcos azules; el grupo los vence; el jefe orco (cinta roja) rapta a la princesa del kimono rosa, le arranca su colgante azul y se la lleva por la puerta del castillo; el grupo ataca al jefe pero un campo de fuerza morado repele flechas, magia y golpes; el rōnin llega tarde; el héroe de pelo rojo ve su colgante igual y lo acusa («¡DEVUÉLVELA!» / «¡NO FUI YO!»), duelo | «CONTINUARÁ...» |
+| 16 | La canción de Lyra (2.5D, bucle de 15 s) | Playa al atardecer: cielo ámbar, banda de nubes carbón, rayos sobre el mar, arena mojada; Lyra canta en la orilla con aura, notas y motas en tonos fríos; destello en la nota alta | «Donde las palabras no alcanzan, la música habla.» — Hans Christian Andersen (sale durante el video) |
 
 Dónde está cada una en el repo:
 - Escenas 2–9, 14 y 15 (Canvas 2D): `experiments/pixel-quest/` (`journey`, `twist`, `dance`, `fish`, `moon`, `tavern`, `refl`,
   `turtle`, `pendant`, `kingdom`). Comparten `journey.js` (personajes y escenarios) y el runtime de motion-kit (`pixel.js`, `chip.js`).
-- Escenas 10–13 (2.5D, three.js): `experiments/spike-25d/` (`index`, `wakayama`, `aurora`, `throne`).
+- Escenas 10–13 y 16 (2.5D, three.js): `experiments/spike-25d/` (`index`, `wakayama`, `aurora`, `throne`, `lyra`).
 - La escena 1 (relojes) no se conservó.
 - Renders en solitario de cada personaje (PNG nativo, ampliado y ficha): `experiments/characters/png/`, regenerables con
   `node experiments/characters/export.cjs`.
