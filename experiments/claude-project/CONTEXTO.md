@@ -24,7 +24,7 @@ trabajo de video vive aparte, en `experiments/` y `.claude/skills/`.
 | **El héroe de pelo rojo** | Armadura azul y espada esmeralda; pescador (el pez gigante), se mira en la cascada |
 | **El arquero rubio** | Pelo rubio con coleta, oreja de elfo, capa verde, carcaj; la escena de la ventana y las auroras |
 | **El rōnin** | Pelo azul, sombrero de paja cónico (kasa), kimono blanco con nubes doradas, faja roja, hakama oscuro, espada roja; lleva el colgante azul que le regaló su madre. De niño: pelo azul alborotado, el mismo kimono blanco con faja roja |
-| **El villano (demonio rojo)** | Piel roja muy musculosa, pelo negro largo, cuernos curvos, ojos azules brillantes con destellos, cicatrices en X en pecho y hombro, guanteletes negros de pelaje con garras, cinturón con placa y escarcelas en chevrón, rodilleras y grebas con púas, gran hacha oscura. Boceto original del autor |
+| **El villano (demonio rojo, «el Ogro Rojo»)** | Piel roja muy musculosa, pelo negro largo, cuernos curvos, ojos azules brillantes con destellos, cicatrices en X en pecho y hombro, guanteletes negros de pelaje con garras, cinturón con placa y escarcelas en chevrón, rodilleras y grebas con púas, gran hacha oscura. Boceto original del autor |
 | **Los orcos azules** | Más pequeños que el villano, piel azul, colmillos, garrotes, lanzas y antorchas; su ejército |
 | **La madre del rōnin** | Kimono rojo intenso con flores de cerezo y obi dorado, pelo negro recogido con kanzashi; le canta a su hijo y le regala el colgante |
 | **La princesa** | Kimono rosa con flores blancas, obi rojo, pelo negro largo con flequillo recto, pequeña tiara dorada; llevaba un colgante azul igual al del rōnin (el jefe orco se lo quitó) |
@@ -53,11 +53,12 @@ Los cinco aventureros juntos son "el grupo" (escena de la fogata y la tortuga, e
 | 13 | El trono | Castillo negro bajo luna roja, zoom a la ventana del trono; el demonio ruge y ordena a los orcos azules destruir la aldea; la aldea arde | Solo SFX |
 | 14 | El colgante | Flashback del rōnin: de niño en un patio de Kioto lleno de cerezos, su madre en kimono le canta y le regala un colgante azul en forma de rombo; en el presente el colgante brilla en su mano | «Recordar es fácil para el que tiene memoria, olvidar es difícil para el que tiene corazón» — Gabriel García Márquez |
 | 15 | El reino (1.ª parte) | Castillo japonés en la montaña (según una pintura de referencia del autor) atacado por orcos azules; el grupo los vence; el jefe orco (cinta roja) rapta a la princesa del kimono rosa, le arranca su colgante azul y se la lleva por la puerta del castillo; el grupo ataca al jefe pero un campo de fuerza morado repele flechas, magia y golpes; el rōnin llega tarde; el héroe de pelo rojo ve su colgante igual y lo acusa («¡DEVUÉLVELA!» / «¡NO FUI YO!»), duelo | «CONTINUARÁ...» |
+| 15b | El reino (2.ª parte) | Continúa el duelo héroe/rōnin con varios choques; en el último, el colgante del rōnin proyecta (holograma cian) a la princesa como rehén del Ogro Rojo en su castillo negro; detienen la pelea: «NO FUISTE TÚ...» / «¡VAMOS POR ELLA!»; el grupo se reúne | «CONTINUARÁ...» |
 | 16 | La canción de Lyra (2.5D, bucle de 15 s) | Playa al atardecer: cielo ámbar, banda de nubes carbón, rayos sobre el mar, arena mojada; Lyra canta en la orilla con aura, notas y motas en tonos fríos; destello en la nota alta | «Ley Multiversal #1: Ama aquellos lugares que sacan lo mejor de ti» (sale durante el video) |
 
 Dónde está cada una en el repo:
 - Escenas 2–9, 14 y 15 (Canvas 2D): `experiments/pixel-quest/` (`journey`, `twist`, `dance`, `fish`, `moon`, `tavern`, `refl`,
-  `turtle`, `pendant`, `kingdom`). Comparten `journey.js` (personajes y escenarios) y el runtime de motion-kit (`pixel.js`, `chip.js`).
+  `turtle`, `pendant`, `kingdom`, `kingdom2`). Comparten `journey.js` (personajes y escenarios) y el runtime de motion-kit (`pixel.js`, `chip.js`).
 - Escenas 10–13 y 16 (2.5D, three.js): `experiments/spike-25d/` (`index`, `wakayama`, `aurora`, `throne`, `lyra`).
 - La escena 1 (relojes) no se conservó.
 - Renders en solitario de cada personaje (PNG nativo, ampliado y ficha): `experiments/characters/png/`, regenerables con

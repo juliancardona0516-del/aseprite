@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>El reino, parte 2</title>
+<style>html,body{margin:0;background:#0b1430;overflow:hidden}canvas{display:block;margin:auto;height:100vh;width:auto}</style>
+</head><body>
+<canvas id="c"></canvas>
+<script src="pixel.js"></script>
+<script src="chip.js"></script>
+<script src="journey.js"></script>
+<script src="pendant.js"></script>
+<script src="kingdom.js"></script>
+<script src="kingdom2-assets.js"></script>
+<script src="kingdom2.js"></script>
+<script>
+const cv = document.getElementById('c'); cv.width = W; cv.height = H;
+const ctx = cv.getContext('2d');
+buildSky(); buildParty(); buildKingdom();
+buildKingdom2().then(() => {
+  window.__meta = { W, H, FPS, DURATION: K2_DUR };
+  window.__draw = t => k2Draw(t, ctx);
+  window.__ready = true;
+  k2Draw(0, ctx);
+  if (!new URLSearchParams(location.search).has('render')) {
+    let ac = null, t0 = 0;
+    addEventListener('click', () => { if (ac) return; ac = new AudioContext(); t0 = ac.currentTime + .1; k2Audio(ac, master(ac), t0); requestAnimationFrame(loop); });
+    function loop() { const t = ac.currentTime - t0; k2Draw(clamp(t, 0, K2_DUR - 1e-3), ctx); if (t < K2_DUR) requestAnimationFrame(loop); }
+  }
+});
+</script></body></html>
