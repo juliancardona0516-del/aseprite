@@ -140,8 +140,44 @@ function k2Audio(ac, out, t0 = 0) {
   for (let k = 0; k < 13; k++) tone(K2.text + k * (1.2 / 13), .03, 1500 + (k % 3) * 120, 1300, .03, 'square');
   [523, 659, 784, 1047].forEach((f, i) => tone(K2.text + 1.4 + i * .1, .6, f, f, .035, 'triangle'));
 }
+// ---------------------------------------------------------------- adventure music (chiptune, motion-kit chip.js), in sections that follow the scene
+const K2_ENV = '@ENV1 { 115, 16, 0 } @ENV2 { 90, 20, 0 } @ENV3 { 60, 5, 0 } @ENV4 { 127, 60, 85 } @ENV5 { 110, 10, 30 } @ENV6 { 30, 96, 100 } @VIB1 { 24, 12, 25 } @ENV0 @VIB0';
+const DRUM = 'O1 C16 R16 O8 V40 C16 R16 O5 V100 C16 R16 O8 V40 C16 R16 O1 V100 C16 O1 C16 O8 V40 C16 R16 O5 V100 C16 R16 O8 V40 C16 C16 V100';   // kick, hat, snare
+const K2_MUSIC = [
+  { at: 0, bpm: 120, tracks: [                                       // the duel: A minor, driving
+    { gain: .34, mml: '@0 O2 L8 Q70 [A A >A< A A A >A< A] [F F >F< F F F >F< F] [G G >G< G E E >E< E]' },
+    { gain: .2, mml: '@1 O5 L8 Q85 @ENV4 E4 A B >C4< B A | F4 A >C D4 C< A | G4 B >D E2<' },
+    { gain: .2, pan: .3, mml: `@3 @ENV3 L16 Q40 [ ${DRUM} ]3` },
+  ] },
+  { at: 5.8, bpm: 120, tracks: [                                     // the blades lock: a run up, a tremolo, a snare roll
+    { gain: .2, mml: '@2 O4 L32 Q90 V70 A A# B >C C# D D# E F F# G G# A' },
+    { gain: .3, mml: '@0 O2 L32 Q90 [A>A<]6' },
+    { gain: .16, pan: .3, mml: '@3 @ENV3 O5 L32 [C]12' },
+  ] },
+  { at: 6.6, bpm: 120, tracks: [{ gain: .22, mml: '@3 @ENV6 O7 L2 Q100 C' }, { gain: .3, mml: '@0 O1 L2 Q100 @ENV4 A' }] },   // the flash: a cymbal and a low A
+  { at: 6.9, bpm: 80, tracks: [                                      // the vision: D minor, a drone, a pad, an eerie arpeggio
+    { gain: .3, mml: '@0 O2 L2 Q100 D D B- A' },
+    { gain: .1, mml: '@1 O4 L2 Q100 V45 @VIB1 D F E C#' },
+    { gain: .13, pan: -.3, mml: '@2 O5 L8 Q70 V55 @ENV5 [D F A >D< A F]2 [C# E A >C#< A E]' },
+  ] },
+  { at: 13.6, bpm: 96, tracks: [                                     // the truce: C major, gentle, under their words
+    { gain: .26, mml: '@0 O2 L2 Q95 C <A> F' },
+    { gain: .1, pan: -.3, mml: '@2 O4 L16 Q80 V50 @ENV5 [C E G E]2 [C E A E]2 [C F A F]2' },
+    { gain: .13, mml: '@0 O5 L4 Q90 V70 G E A G F2' },
+  ] },
+  { at: 17.4, bpm: 120, tracks: [                                    // together: a heroic fanfare, then the held chord of "continuará"
+    { gain: .32, mml: '@0 O2 L8 Q75 C C G G A A G G | Q100 C1&C2' },
+    { gain: .2, mml: '@1 O5 L8 Q85 @ENV4 C C C G4 E G >C | Q100 C1&C2' },
+    { gain: .14, pan: -.3, mml: '@2 O4 L16 Q80 V60 @ENV5 [C E G >C<]4 | [C E G >C<]6 L4 R2' },
+    { gain: .2, pan: .3, mml: `@3 @ENV3 L16 Q40 ${DRUM} | O7 @ENV6 L2 C` },
+  ] },
+];
+function k2Music(ac, out, t0 = 0) {
+  const g = ac.createGain(); g.gain.value = .35; g.connect(out);   // under the sound effects
+  for (const sct of K2_MUSIC) Chip.play(ac, t0 + sct.at, g, sct.tracks, { prefix: `T${sct.bpm} ${K2_ENV}` });
+}
 window.__renderAudio = async () => {
-  const sr = 48000, oac = new OfflineAudioContext(2, Math.ceil(sr * K2_DUR), sr);
-  k2Audio(oac, master(oac));
+  const sr = 48000, oac = new OfflineAudioContext(2, Math.ceil(sr * K2_DUR), sr), part = new URLSearchParams(location.search).get('audio');   // ?audio=music | sfx renders one of the two alone
+  const m = master(oac); if (part !== 'music') k2Audio(oac, m); if (part !== 'sfx') k2Music(oac, m);
   return encodeWavBase64(await oac.startRendering());
 };

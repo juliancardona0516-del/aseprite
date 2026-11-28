@@ -21,7 +21,7 @@ buildKingdom2().then(() => {
   k2Draw(0, ctx);
   if (!new URLSearchParams(location.search).has('render')) {
     let ac = null, t0 = 0;
-    addEventListener('click', () => { if (ac) return; ac = new AudioContext(); t0 = ac.currentTime + .1; k2Audio(ac, master(ac), t0); requestAnimationFrame(loop); });
+    addEventListener('click', () => { if (ac) return; ac = new AudioContext(); t0 = ac.currentTime + .1; const m = master(ac); k2Audio(ac, m, t0); k2Music(ac, m, t0); requestAnimationFrame(loop); });
     function loop() { const t = ac.currentTime - t0; k2Draw(clamp(t, 0, K2_DUR - 1e-3), ctx); if (t < K2_DUR) requestAnimationFrame(loop); }
   }
 });

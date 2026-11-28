@@ -15,7 +15,7 @@ de Aseprite y no tienen dependencias: cada página es HTML más JavaScript clás
 | `turtle.html` | The Turtle | Los 5 en la fogata de una cueva que resulta ser una tortuga gigante dorada | Solo SFX |
 | `pendant.html` | El colgante | Flashback del rōnin: de niño en un patio de Kioto con cerezos, su madre en kimono le canta y le da un colgante azul; en el presente lo mira brillar; cita de García Márquez | Solo SFX |
 | `kingdom.html` | El reino (Continuará…) | Los orcos azules atacan un castillo japonés en la montaña; el grupo los vence; el jefe orco rapta a la princesa del kimono rosa y le arranca su colgante azul; llega el rōnin tarde y el héroe de pelo rojo, al ver su colgante, lo cree culpable: duelo y «CONTINUARÁ…». Carga también `pendant.js` | Solo SFX |
-| `kingdom2.html` | El reino, 2.ª parte | Sigue el duelo: varios choques de espada; en el último el colgante del rōnin proyecta un holograma de la princesa rehén del Ogro Rojo en su castillo; detienen la pelea («NO FUISTE TÚ...» / «¡VAMOS POR ELLA!»), el grupo se reúne y «CONTINUARÁ…». Carga `pendant.js`, `kingdom.js` y `kingdom2-assets.js` (el render del ogro) | Solo SFX |
+| `kingdom2.html` | El reino, 2.ª parte | Sigue el duelo: varios choques de espada; en el último el colgante del rōnin proyecta un holograma de la princesa rehén del Ogro Rojo en su castillo; detienen la pelea («NO FUISTE TÚ...» / «¡VAMOS POR ELLA!»), el grupo se reúne y «CONTINUARÁ…». Carga `pendant.js`, `kingdom.js` y `kingdom2-assets.js` (el render del ogro) | Música de aventura chiptune + SFX (`?audio=music` / `?audio=sfx` los renderiza por separado) |
 | `sheet.html` | Hoja de personajes | Todos los viajeros con sus fotogramas de caminar | — |
 
 ## Archivos compartidos
